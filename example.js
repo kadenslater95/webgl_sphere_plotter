@@ -46,19 +46,48 @@ function init_shaders() {
   }
 }
 
+
+function loadBuffers() {
+  gl.enableVertexAttribArray(0);
+
+  latticeBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, latticeBuffer);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  
+  latticeN = 100;
+
+  // 100 x 100 vertices with 2 coordinates per vertex
+  lattice = new Float32Array(latticeN*latticeN*2);
+
+  thetaFactor = 2.0*Math.PI/latticeN;
+  phiFactor = Math.PI/latticeN;
+  for(let i = 0; i < latticeN*latticeN*2; i++) {
+    if(i % 2 == 0) {
+      lattice[i] = thetaFactor*(i % latticeN);
+    }else {
+      lattice[i] = -Math.PI/2 + phiFactor*(i % latticeN);
+    }
+  }
+
+  gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.DYNAMIC_DRAW);
+
+
+  indexBuffer = gl.createBuffer
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+  gl.vertexAttribPointer(0, 1, gl.FLOAT, false, 0, 0);
+
+
+}
+
+
 function init() {
   init_shaders();
 
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
-
-  gl.enableVertexAttribArray(0);
-
-  buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-
-  gl.vertexAttribPointer(0, 1, gl.FLOAT, false, 0, 0);
+  
+  loadBuffers()
 
   render();
 }
