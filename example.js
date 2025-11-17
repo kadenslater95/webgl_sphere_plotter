@@ -59,13 +59,23 @@ function loadBuffers() {
   // 100 x 100 vertices with 2 coordinates per vertex
   lattice = new Float32Array(latticeN*latticeN*2);
 
+  // We just want the 1 point at the poles
+  lattice[0] = 0.0; // theta of bottom pole
+  lattice[1] = -Math.PI/2.0; // phi of bottom pole
+  lattice[latticeN - 2] = 0.0;
+  lattice[latticeN - 1] = Math.PI;
+
   thetaFactor = 2.0*Math.PI/latticeN;
   phiFactor = Math.PI/latticeN;
-  for(let i = 0; i < latticeN*latticeN*2; i++) {
-    if(i % 2 == 0) {
-      lattice[i] = thetaFactor*(i % latticeN);
-    }else {
-      lattice[i] = -Math.PI/2 + phiFactor*(i % latticeN);
+  index = 0; // index within the contiguous lattice (not i,j)
+
+  // Note we start phi at 1 and stop 1 early because we alread set the poles as a single point
+  for(let i = 1; i < latticeN -1; i++) {
+    for(let j = 0; j < latticeN; j++) {
+      lattices[index] = thetaFactor*j;
+      lattices[index + 1] = -Math.PI/2 + phiFactor*i;
+
+      index += 2;
     }
   }
 
@@ -74,9 +84,35 @@ function loadBuffers() {
 
   indexBuffer = gl.createBuffer
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-  gl.vertexAttribPointer(0, 1, gl.FLOAT, false, 0, 0);
+  gl.vertexAttribPointer(0, 6, gl.FLOAT, false, 0, 0);
 
+  // TODO: Work out the correct size
+  indicesN = 2*latticeN + 2*(latticeN - 2)*(latticeN);
+  indices = new Uint16Array(indicesN);
+  index = 0; // index within the indices list, not i,j, etc.
 
+  // Fill the triangles at the poles
+  for(let i = 0; i < latticeN; i++) {
+    indices[index] = 
+    indices[index + 1] = 
+    indices[index + 2] = 
+
+    indices[indicesN - 3*latticeN + index] = 
+    indices[indicesN - 3*latticeN + index + 1] = 
+    indices[indicesN - 3*latticeN + index + 2] = 
+
+    indices += 3;
+  }
+
+  for(let i = 1; i < latticeN - 1; i++) {
+    for(let j = 0; j < latticeN; j++) {
+      indices[index] = 
+      indices[index + 1] = 
+      indices[index + 2] = 
+
+      index += 3;
+    }
+  }
 }
 
 
