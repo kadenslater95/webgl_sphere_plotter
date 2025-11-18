@@ -54,30 +54,44 @@ function loadBuffers() {
   gl.bindBuffer(gl.ARRAY_BUFFER, latticeBuffer);
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   
-  latticeN = 100;
+  // How many (theta, phi) pairs to form my spherical coordinate mesh vertices
+  thetaN = 100;
+  phiN = 100;
+  // Note: phi[0] is south pole, and phi[len - 1] is north pole
 
-  // 100 x 100 vertices with 2 coordinates per vertex
-  lattice = new Float32Array(latticeN*latticeN*2);
+  // 2 poles, each with 2 floats (theta, phi)
+  latticeSize = 2 * 2;
+  // Full rings of theta, but phi not counted at poles
+  latticeSize += 2 * thetaN * (phiN - 2);
 
-  // We just want the 1 point at the poles
+  lattice = new Float32Array(latticeSize);
+
+  // Fill from the bottom up
+
   lattice[0] = 0.0; // theta of bottom pole
   lattice[1] = -Math.PI/2.0; // phi of bottom pole
-  lattice[latticeN - 2] = 0.0;
-  lattice[latticeN - 1] = Math.PI;
 
-  thetaFactor = 2.0*Math.PI/latticeN;
-  phiFactor = Math.PI/latticeN;
-  index = 0; // index within the contiguous lattice (not i,j)
+  // Theta rings are full 0 to 2PI
+  thetaFactor = 2.0*Math.PI/thetaN;
 
-  // Note we start phi at 1 and stop 1 early because we alread set the poles as a single point
-  for(let i = 1; i < latticeN -1; i++) {
-    for(let j = 0; j < latticeN; j++) {
+  // Phi ranges from -PI/2 to PI/2 (so pi) but over 1 to 98 since 0 and 99 are poles
+  phiFactor = Math.PI/(phiN - 1);
+
+  // The index within the contiguous lattice (not i,j)
+  index = 0;
+
+  // Note we start phi at 1 and end 1 early because we already set the poles as a single point
+  for(let i = 1; i < phiN - 1; i++) {
+    for(let j = 0; j < thetaN; j++) {
       lattices[index] = thetaFactor*j;
       lattices[index + 1] = -Math.PI/2 + phiFactor*i;
 
       index += 2;
     }
   }
+
+  lattice[latticeSize - 2] = 0.0; // theta of top pole
+  lattice[latticeSize - 1] = Math.PI/2; // phi of top pole
 
   gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.DYNAMIC_DRAW);
 
@@ -86,31 +100,104 @@ function loadBuffers() {
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
   gl.vertexAttribPointer(0, 6, gl.FLOAT, false, 0, 0);
 
-  // TODO: Work out the correct size
-  indicesN = 2*latticeN + 2*(latticeN - 2)*(latticeN);
-  indices = new Uint16Array(indicesN);
+  // 2 poles, so multiply 2 by the total
+  // 3 indices per triangle, each index being to a (theta, phi) pair.
+  // Bottom/Top is 1 triangle per theta in my 1st theta ring.
+  indicesSize = 2 * 3 * thetaN;
+
+  // The rest is 2 triangles per theta in a given theta ring.
+  // 3 indices per triangle
+  // There are phiN - 2 total theta rings
+  indicesSize += 2 * 3 * thetaN * (phiN - 2);
+
+
+  indices = new Uint16Array(indicesSize);
   index = 0; // index within the indices list, not i,j, etc.
 
-  // Fill the triangles at the poles
-  for(let i = 0; i < latticeN; i++) {
-    indices[index] = 
-    indices[index + 1] = 
-    indices[index + 2] = 
+  // Fill from the bottom up, but fill top simultaneously in this first loop
 
-    indices[indicesN - 3*latticeN + index] = 
-    indices[indicesN - 3*latticeN + index + 1] = 
-    indices[indicesN - 3*latticeN + index + 2] = 
+  // Index 0 is the bottom pole, so offset by 1
+  offsetElementBottom = 1;
 
-    indices += 3;
+  // The indices are per item, and an item is the 2 floats (theta, phi) pairing
+  latticeElementsSize = latticeSize / 2;
+
+  // Take out top theta ring of triangles, so we can start from empty top, then fill it.
+
+  // Last index is (size - 1)
+  // Take out the pole (just 1 index taken out)
+  // Take out the 3 indices per triangle in the top theta ring
+  offsetElementTop = (latticeElementsSize - 1) - 1 - 3 * thetaN;
+
+  // 2 triangles per theta, and 3 indices per triangle
+  indicesOffsetForTop = indicesSize - 2 * 3 * thetaN;
+
+  // Fill the triangles at the poles going around the bottom theta ring
+  for(let i = 0; i < thetaN; i++) {
+    // ------------ Bottom Triangles ----------------
+
+    indices[index] = offsetElementBottom + i;
+
+    // Note need next vertex along theta ring
+    // When we reach last vertex need to wrap back to 0, but then add the offset
+    indices[index + 1] = (indices[index] + 1) % thetaN;
+    if(indices[index + 1] == 0) {
+      indices[index + 1] = offsetElementBottom;
+    }
+
+    // Every bottom triangle shares the south pole vertex.
+    // Right hand rule puts this as 3rd vertex per triangle.
+    indices[index + 2] = lattice[0];
+
+    // -----------------------------------------------
+
+
+    // ------------- Top Triangles -------------------
+    
+    indices[indicesOffsetForTop + index] = offsetElementTop + i;
+
+    // Every top triangle shares this north pole vertex.
+    // Right hand rule puts it as middle vertex per triangle.
+    indices[indicesOffsetForTop + index + 1] = latticeElementsSize - 1;
+
+    // Note need next vertex along theta ring
+    // When we reach last vertex need to wrap back to 0, but then add the offset
+    indices[indicesOffsetForTop + index + 2] = (indices[indicesOffsetForTop + index] + 1) % thetaN;
+    if(indices[indicesOffsetForTop + index + 2] == 0) {
+      indices[indicesOffsetForTop + index + 2] = indicesOffsetForTop;
+    }
+
+    // ------------------------------------------------
+
+
+    // I did top and bottom simultaneously, and only 3 indices per triangle and only 1 triangle per
+    // theta in the theta ring for the top and bottom
+    index += 3;
   }
 
-  for(let i = 1; i < latticeN - 1; i++) {
-    for(let j = 0; j < latticeN; j++) {
-      indices[index] = 
-      indices[index + 1] = 
-      indices[index + 2] = 
 
-      index += 3;
+  // index at this point has the bottom triangles
+  // 3 indices per triangle
+  // thetaN triangles (1 per theta in the ring)
+  indicesOffsetForMiddle = 3 * (thetaN - 1) + 1;
+  index = indicesOffsetForMiddle;
+
+  for(let i = 1; i < phiN - 1; i++) {
+    for(let j = 0; j < thetaN; j++) {
+      // 2 triangles per theta
+      baseIndex = index + (i - 1)*thetaN + j
+
+      // 1st Triangle
+      indices[baseIndex] = ;
+      indices[baseIndex + 1] = ;
+      indices[baseIndex + 2] = ;
+
+      // 2nd triangle
+      indices[baseIndex + 3] = ;
+      indices[baseIndex + 4] = ;
+      indices[baseIndex + 5] = ; 
+
+      index += 6;
     }
   }
 }
