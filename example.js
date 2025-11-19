@@ -55,8 +55,8 @@ function loadBuffers() {
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   
   // How many (theta, phi) pairs to form my spherical coordinate mesh vertices
-  thetaN = 100;
-  phiN = 100;
+  thetaN = 20;
+  phiN = 20;
   // Note: phi[0] is south pole, and phi[len - 1] is north pole
 
   // 2 poles, each with 2 floats (theta, phi)
@@ -284,7 +284,7 @@ function render() {
 
   loadUniforms();
 
-  gl.drawElements(gl.TRIANGLES, indicesSize, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.LINES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
   cleanup();
 }
