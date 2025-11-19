@@ -182,20 +182,46 @@ function loadBuffers() {
   indicesOffsetForMiddle = 3 * (thetaN - 1) + 1;
   index = indicesOffsetForMiddle;
 
+  // thetaN would be the starting index if not for south pole
+  // +1 for the south pole
+  latticeIndexOffset = thetaN + 1;
+
   for(let i = 1; i < phiN - 1; i++) {
     for(let j = 0; j < thetaN; j++) {
       // 2 triangles per theta
       baseIndex = index + (i - 1)*thetaN + j
 
+      // 1 to offset for the south pole
+      // thetaN*i for how many theta rings are before us
+      // This is theta 0 for ring i basically
+      baseLatticeIndex = 1 + thetaN*i;
+
+      quadBottomLeft = baseLatticeIndex + j;
+
+      quadTopLeft = baseLatticeIndex + j + thetaN;
+
+      // On the right, if I am the last vertex I need to reset to 0, or it will jump up to
+      // next theta ring
+      quadTopRight = baseLatticeIndex + j + thetaN + 1;
+      if(j == thetaN - 1) {
+        quadTopRight = baseLatticeIndex + thetaN;
+      }
+
+      quadBottomRight = baseLatticeIndex + j + 1;
+      if(j == thetaN - 1) {
+        quadBottomRight = baseLatticeIndex;
+      }
+      
+
       // 1st Triangle
-      indices[baseIndex] = ;
-      indices[baseIndex + 1] = ;
-      indices[baseIndex + 2] = ;
+      indices[baseIndex] = quadBottomLeft;
+      indices[baseIndex + 1] = quadTopLeft;
+      indices[baseIndex + 2] = quadTopRight;
 
       // 2nd triangle
-      indices[baseIndex + 3] = ;
-      indices[baseIndex + 4] = ;
-      indices[baseIndex + 5] = ; 
+      indices[baseIndex + 3] = quadTopRight;
+      indices[baseIndex + 4] = quadBottomRight;
+      indices[baseIndex + 5] = quadBottomLeft; 
 
       index += 6;
     }
