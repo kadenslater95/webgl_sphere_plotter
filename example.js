@@ -230,6 +230,40 @@ function loadBuffers() {
 }
 
 
+function loadUniforms() {
+  uMVP = gl.getUniformLocation(program, "uMVP");
+
+  model = glMatrix.mat4.create();
+  view = glMatrix.mat4.create();
+  proj = glMatrix.mat4.create();
+  mvp = glMatrix.mat4.create();
+
+  // Camera
+  glMatrix.mat4.lookAt(
+    view,
+    [0, 10, -15], // camera position
+    [0, 0, 0], // look at origin
+    [0, 1, 0] // up direction
+  );
+
+  // Projection
+  fov = Math.PI/4; // field of view
+  aspect = canvas.width / canvas.height;
+  near = 0.1;
+  far = 100.0;
+  glMatrix.mat4.perspective(proj, fov, aspect, near, far);
+
+  // Model
+  glMatrix.mat4.identity(model); // identity for now, gonna mess with it later
+
+  // MVP
+  glMatrix.mat4.multiply(mvp, view, model);
+  glMatrix.mat4.multiply(mvp, proj, mvp);
+
+  gl.uniformMatrix4fv(uMVP, false, mvp);
+}
+
+
 function init() {
   init_shaders();
 
@@ -237,7 +271,7 @@ function init() {
 
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
   
-  loadBuffers()
+  loadBuffers();
 
   render();
 }
@@ -247,6 +281,8 @@ function render() {
   gl.clear(gl.COLOR_BUFFER_BIT);
 
   gl.useProgram(program);
+
+  loadUniforms();
 
   gl.drawElements(gl.TRIANGLES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
