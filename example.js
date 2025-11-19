@@ -83,8 +83,8 @@ function loadBuffers() {
   // Note we start phi at 1 and end 1 early because we already set the poles as a single point
   for(let i = 1; i < phiN - 1; i++) {
     for(let j = 0; j < thetaN; j++) {
-      lattices[index] = thetaFactor*j;
-      lattices[index + 1] = -Math.PI/2 + phiFactor*i;
+      lattice[index] = thetaFactor*j;
+      lattice[index + 1] = -Math.PI/2 + phiFactor*i;
 
       index += 2;
     }
@@ -96,9 +96,8 @@ function loadBuffers() {
   gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.DYNAMIC_DRAW);
 
 
-  indexBuffer = gl.createBuffer
+  indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-  gl.vertexAttribPointer(0, 6, gl.FLOAT, false, 0, 0);
 
   // 2 poles, so multiply 2 by the total
   // 3 indices per triangle, each index being to a (theta, phi) pair.
@@ -226,6 +225,8 @@ function loadBuffers() {
       index += 6;
     }
   }
+
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW);
 }
 
 
@@ -247,7 +248,7 @@ function render() {
 
   gl.useProgram(program);
 
-  gl.drawArrays(gl.POINTS, 0, 1);
+  gl.drawElements(gl.TRIANGLES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
   cleanup();
 }
