@@ -55,43 +55,43 @@ function loadBuffers() {
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   
   // How many (theta, phi) pairs to form my spherical coordinate mesh vertices
-  thetaN = 20;
-  phiN = 20;
+  thetaN = 50;
+  phiN = 50;
   // Note: phi[0] is south pole, and phi[len - 1] is north pole
 
   // 2 poles, each with 2 floats (theta, phi)
   latticeSize = 2 * 2;
   // Full rings of theta, but phi not counted at poles
-  latticeSize += 2 * thetaN * (phiN - 2);
+  latticeSize += 2 * thetaN * phiN;
 
   lattice = new Float32Array(latticeSize);
 
-  // Fill from the bottom up
+  // Fill from the top down
 
-  lattice[0] = 0.0; // theta of bottom pole
-  lattice[1] = Math.PI; // phi of bottom pole
+  lattice[0] = 0.0; // theta of north pole
+  lattice[1] = 0.0; // phi of north pole
 
   // Theta rings are full 0 to 2PI
   thetaFactor = 2.0*Math.PI/thetaN;
 
-  // Phi ranges from PI to 0 (so pi) but over 1 to 98 since 0 and 99 are poles
-  phiFactor = Math.PI/(phiN - 1);
+  // Phi ranges from 0 to PI
+  phiFactor = Math.PI/phiN;
 
   // The index within the contiguous lattice (not i,j)
-  index = 0;
+  index = 2;
 
   // Note we start phi at 1 and end 1 early because we already set the poles as a single point
-  for(let i = 1; i < phiN - 1; i++) {
+  for(let i = 0; i < phiN; i++) {
     for(let j = 0; j < thetaN; j++) {
       lattice[index] = thetaFactor*j;
-      lattice[index + 1] = Math.PI + phiFactor*i;
+      lattice[index + 1] = phiFactor*i;
 
       index += 2;
     }
   }
 
-  lattice[latticeSize - 2] = 0.0; // theta of top pole
-  lattice[latticeSize - 1] = Math.PI/2; // phi of top pole
+  lattice[index] = 0.0; // theta of south pole
+  lattice[index + 1] = Math.PI; // phi of south pole
 
   gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.DYNAMIC_DRAW);
 
@@ -107,57 +107,56 @@ function loadBuffers() {
   // 2 triangles per theta
   // 3 indices per triangle
   // A theta ring per phi for all but the 2 poles
-  indicesSize += 2 * 3 * thetaN * (phiN - 2);
+  indicesSize += 2 * 3 * thetaN * (phiN - 1);
 
   indices = new Uint16Array(indicesSize);
   index = 0; // index within the indices list, not i,j, etc.
 
-  // Skip vIndex 0 because that is the south pole
-  bottomHatStart = 1;
+  // Skip vIndex 0 because that is the north pole
+  topHatStart = 1;
 
-  // Skip south pole, and all theta rings up to the last, so 1 less then phiN - 2
-  topHatStart = 1 + thetaN * (phiN - 3);
+  // Skip noth pole, and all theta rings up to the last, so 1 less then phiN - 2
+  bottomHatStart = 1 + thetaN * (phiN - 2);
 
   // 2 floats per vertex, so divide that out to get number of vertices
   verticesSize = latticeSize / 2;
 
   // 3 indices per triangle, and topHatStart triangles up to this point
-  topHatIndexOffset = topHatStart * 3;
+  bottomHatIndexOffset = 3 * thetaN + 3 * 2 * thetaN * (phiN - 1);
 
   for(let i = 0; i < thetaN; i++) {
-    // Bottom Hat
-    quadTopLeft = bottomHatStart + i;
-    
-    quadTopRight = bottomHatStart + i + 1;
-    if(i == thetaN - 1) {
-      quadTopRight = bottomHatStart;
-    }
-
-    southPole = 0;
-
-    indices[index] = quadTopLeft;
-    indices[index + 1] = quadTopRight;
-    indices[index + 2] = southPole;
-
-    // -----------------------------------------
-
     // Top Hat
     quadBottomLeft = topHatStart + i;
-
+    
     quadBottomRight = topHatStart + i + 1;
     if(i == thetaN - 1) {
       quadBottomRight = topHatStart;
     }
 
-    northPole = verticesSize - 1;
+    northPole = 0;
 
-    indices[topHatIndexOffset + index] = quadBottomLeft;
-    indices[topHatIndexOffset + index + 1] = northPole;
-    indices[topHatIndexOffset + index + 2] = quadBottomRight;
+    indices[index] = northPole;
+    indices[index + 1] = quadBottomRight;
+    indices[index + 2] = quadBottomLeft;
+
+    // -----------------------------------------
+
+    // Bottom Hat
+    quadTopLeft = bottomHatStart + i;
+
+    quadTopRight = bottomHatStart + i + 1;
+    if(i == thetaN - 1) {
+      quadTopRight = bottomHatStart;
+    }
+
+    southPole = verticesSize - 1;
+
+    indices[bottomHatIndexOffset + index] = southPole;
+    indices[bottomHatIndexOffset + index + 1] = quadTopLeft;
+    indices[bottomHatIndexOffset + index + 2] = quadTopRight;
 
     index += 3;
   }
-
 
   // Now fill the strips between bottom hat and top hat
 
@@ -165,24 +164,23 @@ function loadBuffers() {
   stripStart = 1;
 
   // Note we don't have a strip on the topmost theta ring, so < phiN - 2 instead of 1
-  for(let i = 1; i < phiN - 2; i++) {
+  for(let i = 0; i < phiN - 1; i++) {
     for(let j = 0; j < thetaN; j++) {
       // Gotta offset the south pole, and then the theta rings below me
-      quadBottomLeft = stripStart + j + (i - 1) * thetaN;
-
-      // I'm a whole theta ring above
-      quadTopLeft = quadBottomLeft + thetaN;
+      quadTopLeft = stripStart + j + i * thetaN;
 
       quadTopRight = quadTopLeft + 1;
+
+      // I'm a whole ring below
+      quadBottomLeft = quadTopLeft + thetaN;
 
       quadBottomRight = quadBottomLeft + 1;
 
       // Put me at start of this ring if I reach the last vertex, to complete that circle
       if(j == thetaN - 1) {
-        quadBottomRight = stripStart + (i - 1) * thetaN;
-        quadTopRight = quadBottomRight + thetaN;
+        quadTopRight = stripStart + i * thetaN;
+        quadBottomRight = quadTopRight + thetaN;
       }
-
 
       // Left Triangle
       indices[index] = quadBottomLeft;
@@ -231,8 +229,9 @@ function loadUniforms() {
   // Model
   // identity to clear it so we don't compound transformations
   glMatrix.mat4.identity(model);
+  glMatrix.mat4.rotateX(model, model, performance.now()*0.00025);
   glMatrix.mat4.rotateY(model, model, performance.now()*0.0005);
-
+  glMatrix.mat4.rotateZ(model, model, performance.now()*-0.00025);
 
   // MVP
   glMatrix.mat4.multiply(mvp, view, model);
