@@ -18,9 +18,9 @@
     void main() {
       float rho = 5.0;
 
-      float x = rho * cos(aPosition.y) * cos(aPosition.x);
-      float y = rho * sin(aPosition.y);
-      float z = rho * cos(aPosition.y) * sin(aPosition.x);
+      float x = rho * sin(aPosition.y) * cos(aPosition.x);
+      float y = rho * cos(aPosition.y);
+      float z = rho * sin(aPosition.y) * sin(aPosition.x);
 
       gl_Position = uMVP * vec4(x, y, z, 1.0);
     }

@@ -69,12 +69,12 @@ function loadBuffers() {
   // Fill from the bottom up
 
   lattice[0] = 0.0; // theta of bottom pole
-  lattice[1] = -Math.PI/2.0; // phi of bottom pole
+  lattice[1] = Math.PI; // phi of bottom pole
 
   // Theta rings are full 0 to 2PI
   thetaFactor = 2.0*Math.PI/thetaN;
 
-  // Phi ranges from -PI/2 to PI/2 (so pi) but over 1 to 98 since 0 and 99 are poles
+  // Phi ranges from PI to 0 (so pi) but over 1 to 98 since 0 and 99 are poles
   phiFactor = Math.PI/(phiN - 1);
 
   // The index within the contiguous lattice (not i,j)
@@ -84,7 +84,7 @@ function loadBuffers() {
   for(let i = 1; i < phiN - 1; i++) {
     for(let j = 0; j < thetaN; j++) {
       lattice[index] = thetaFactor*j;
-      lattice[index + 1] = -Math.PI/2 + phiFactor*i;
+      lattice[index + 1] = Math.PI + phiFactor*i;
 
       index += 2;
     }
@@ -99,132 +99,107 @@ function loadBuffers() {
   indexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-  // 2 poles, so multiply 2 by the total
-  // 3 indices per triangle, each index being to a (theta, phi) pair.
-  // Bottom/Top is 1 triangle per theta in my 1st theta ring.
-  indicesSize = 2 * 3 * thetaN;
-
-  // The rest is 2 triangles per theta in a given theta ring.
   // 3 indices per triangle
-  // There are phiN - 2 total theta rings
-  indicesSize += 2 * 3 * thetaN * (phiN - 2);
+  // 1 triangle per theta
+  // 2 because bottom and top hat
+  indicesSize = 3 * thetaN * 2
 
+  // 2 triangles per theta
+  // 3 indices per triangle
+  // A theta ring per phi for all but the 2 poles
+  indicesSize += 2 * 3 * thetaN * (phiN - 2);
 
   indices = new Uint16Array(indicesSize);
   index = 0; // index within the indices list, not i,j, etc.
 
-  // Fill from the bottom up, but fill top simultaneously in this first loop
+  // Skip vIndex 0 because that is the south pole
+  bottomHatStart = 1;
 
-  // Index 0 is the bottom pole, so offset by 1
-  offsetElementBottom = 1;
+  // Skip south pole, and all theta rings up to the last, so 1 less then phiN - 2
+  topHatStart = 1 + thetaN * (phiN - 3);
 
-  // The indices are per item, and an item is the 2 floats (theta, phi) pairing
-  latticeElementsSize = latticeSize / 2;
+  // 2 floats per vertex, so divide that out to get number of vertices
+  verticesSize = latticeSize / 2;
 
-  // Take out top theta ring of triangles, so we can start from empty top, then fill it.
+  // 3 indices per triangle, and topHatStart triangles up to this point
+  topHatIndexOffset = topHatStart * 3;
 
-  // Last index is (size - 1)
-  // Take out the pole (just 1 index taken out)
-  // Take out the 3 indices per triangle in the top theta ring
-  offsetElementTop = (latticeElementsSize - 1) - 1 - 3 * thetaN;
-
-  // 2 triangles per theta, and 3 indices per triangle
-  indicesOffsetForTop = indicesSize - 2 * 3 * thetaN;
-
-  // Fill the triangles at the poles going around the bottom theta ring
   for(let i = 0; i < thetaN; i++) {
-    // ------------ Bottom Triangles ----------------
-
-    indices[index] = offsetElementBottom + i;
-
-    // Note need next vertex along theta ring
-    // When we reach last vertex need to wrap back to 0, but then add the offset
-    indices[index + 1] = (indices[index] + 1) % thetaN;
-    if(indices[index + 1] == 0) {
-      indices[index + 1] = offsetElementBottom;
-    }
-
-    // Every bottom triangle shares the south pole vertex.
-    // Right hand rule puts this as 3rd vertex per triangle.
-    indices[index + 2] = lattice[0];
-
-    // -----------------------------------------------
-
-
-    // ------------- Top Triangles -------------------
+    // Bottom Hat
+    quadTopLeft = bottomHatStart + i;
     
-    indices[indicesOffsetForTop + index] = offsetElementTop + i;
-
-    // Every top triangle shares this north pole vertex.
-    // Right hand rule puts it as middle vertex per triangle.
-    indices[indicesOffsetForTop + index + 1] = latticeElementsSize - 1;
-
-    // Note need next vertex along theta ring
-    // When we reach last vertex need to wrap back to 0, but then add the offset
-    indices[indicesOffsetForTop + index + 2] = (indices[indicesOffsetForTop + index] + 1) % thetaN;
-    if(indices[indicesOffsetForTop + index + 2] == 0) {
-      indices[indicesOffsetForTop + index + 2] = indicesOffsetForTop;
+    quadTopRight = bottomHatStart + i + 1;
+    if(i == thetaN - 1) {
+      quadTopRight = bottomHatStart;
     }
 
-    // ------------------------------------------------
+    southPole = 0;
 
+    indices[index] = quadTopLeft;
+    indices[index + 1] = quadTopRight;
+    indices[index + 2] = southPole;
 
-    // I did top and bottom simultaneously, and only 3 indices per triangle and only 1 triangle per
-    // theta in the theta ring for the top and bottom
+    // -----------------------------------------
+
+    // Top Hat
+    quadBottomLeft = topHatStart + i;
+
+    quadBottomRight = topHatStart + i + 1;
+    if(i == thetaN - 1) {
+      quadBottomRight = topHatStart;
+    }
+
+    northPole = verticesSize - 1;
+
+    indices[topHatIndexOffset + index] = quadBottomLeft;
+    indices[topHatIndexOffset + index + 1] = northPole;
+    indices[topHatIndexOffset + index + 2] = quadBottomRight;
+
     index += 3;
   }
 
 
-  // index at this point has the bottom triangles
-  // 3 indices per triangle
-  // thetaN triangles (1 per theta in the ring)
-  indicesOffsetForMiddle = 3 * (thetaN - 1) + 1;
-  index = indicesOffsetForMiddle;
+  // Now fill the strips between bottom hat and top hat
 
-  // thetaN would be the starting index if not for south pole
-  // +1 for the south pole
-  latticeIndexOffset = thetaN + 1;
+  // 1st index is south pole so offset my vIndex by that
+  stripStart = 1;
 
-  for(let i = 1; i < phiN - 1; i++) {
+  // Note we don't have a strip on the topmost theta ring, so < phiN - 2 instead of 1
+  for(let i = 1; i < phiN - 2; i++) {
     for(let j = 0; j < thetaN; j++) {
-      // 2 triangles per theta
-      baseIndex = index + (i - 1)*thetaN + j
+      // Gotta offset the south pole, and then the theta rings below me
+      quadBottomLeft = stripStart + j + (i - 1) * thetaN;
 
-      // 1 to offset for the south pole
-      // thetaN*i for how many theta rings are before us
-      // This is theta 0 for ring i basically
-      baseLatticeIndex = 1 + thetaN*i;
+      // I'm a whole theta ring above
+      quadTopLeft = quadBottomLeft + thetaN;
 
-      quadBottomLeft = baseLatticeIndex + j;
+      quadTopRight = quadTopLeft + 1;
 
-      quadTopLeft = baseLatticeIndex + j + thetaN;
+      quadBottomRight = quadBottomLeft + 1;
 
-      // On the right, if I am the last vertex I need to reset to 0, or it will jump up to
-      // next theta ring
-      quadTopRight = baseLatticeIndex + j + thetaN + 1;
+      // Put me at start of this ring if I reach the last vertex, to complete that circle
       if(j == thetaN - 1) {
-        quadTopRight = baseLatticeIndex + thetaN;
+        quadBottomRight = stripStart + (i - 1) * thetaN;
+        quadTopRight = quadBottomRight + thetaN;
       }
 
-      quadBottomRight = baseLatticeIndex + j + 1;
-      if(j == thetaN - 1) {
-        quadBottomRight = baseLatticeIndex;
-      }
-      
 
-      // 1st Triangle
-      indices[baseIndex] = quadBottomLeft;
-      indices[baseIndex + 1] = quadTopLeft;
-      indices[baseIndex + 2] = quadTopRight;
+      // Left Triangle
+      indices[index] = quadBottomLeft;
+      indices[index + 1] = quadTopLeft;
+      indices[index + 2] = quadTopRight;
 
-      // 2nd triangle
-      indices[baseIndex + 3] = quadTopRight;
-      indices[baseIndex + 4] = quadBottomRight;
-      indices[baseIndex + 5] = quadBottomLeft; 
+      // Right triangle
+      indices[index + 3] = quadTopRight;
+      indices[index + 4] = quadBottomRight;
+      indices[index + 5] = quadBottomLeft; 
 
+
+      // 2 triangles per theta, 3 vertices per triangle
       index += 6;
     }
   }
+
 
   gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW);
 }
@@ -254,7 +229,10 @@ function loadUniforms() {
   glMatrix.mat4.perspective(proj, fov, aspect, near, far);
 
   // Model
-  glMatrix.mat4.identity(model); // identity for now, gonna mess with it later
+  // identity to clear it so we don't compound transformations
+  glMatrix.mat4.identity(model);
+  glMatrix.mat4.rotateY(model, model, performance.now()*0.0005);
+
 
   // MVP
   glMatrix.mat4.multiply(mvp, view, model);
@@ -286,7 +264,9 @@ function render() {
 
   gl.drawElements(gl.LINES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
-  cleanup();
+  requestAnimationFrame(render);
+
+  //cleanup();
 }
 
 
