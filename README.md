@@ -1,2 +1,2 @@
 To use it, go to the github page:
-https://kadenslater95.github.io/webgl_sphere_plotter/
+<a href="https://kadenslater95.github.io/webgl_sphere_plotter/" target="_blank">https://kadenslater95.github.io/webgl_sphere_plotter/</a>
