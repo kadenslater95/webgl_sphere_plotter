@@ -287,8 +287,8 @@ function loadUniforms() {
   gl.uniform3fv(uLightPosition, lightPosition);
   gl.uniform3fv(uCameraPosition, cameraPosition);
 
-  gl.uniform3fv(uLightColor, [1.0, 1.0, 1.0]);
-  gl.uniform3fv(uObjectColor, [0.8, 0.8, 0.8]);
+  gl.uniform3fv(uLightColor, [0.8, 0.8, 0.8]);
+  gl.uniform3fv(uObjectColor, [0.7, 0.7, 0.7]);
 }
 
 
