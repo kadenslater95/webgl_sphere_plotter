@@ -49,6 +49,7 @@ function init_shaders() {
 
 function loadBuffers() {
   gl.enableVertexAttribArray(0);
+  gl.enableVertexAttribArray(1);
 
   latticeBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, latticeBuffer);
@@ -62,7 +63,7 @@ function loadBuffers() {
   // 2 poles, each with 2 floats (theta, phi)
   latticeSize = 2 * 2;
   // Full rings of theta, but phi not counted at poles
-  latticeSize += 2 * thetaN * phiN;
+  latticeSize += 2 * thetaN * (phiN - 1);
 
   lattice = new Float32Array(latticeSize);
 
@@ -72,7 +73,7 @@ function loadBuffers() {
   lattice[1] = 0.0; // phi of north pole
 
   // Theta rings are full 0 to 2PI
-  thetaFactor = 2.0*Math.PI/thetaN;
+  thetaFactor = 2.0*Math.PI/(thetaN - 1);
 
   // Phi ranges from 0 to PI
   phiFactor = Math.PI/phiN;
@@ -81,7 +82,7 @@ function loadBuffers() {
   index = 2;
 
   // Note we start phi at 1 and end 1 early because we already set the poles as a single point
-  for(let i = 0; i < phiN; i++) {
+  for(let i = 1; i < phiN; i++) {
     for(let j = 0; j < thetaN; j++) {
       lattice[index] = thetaFactor*j;
       lattice[index + 1] = phiFactor*i;
@@ -93,7 +94,7 @@ function loadBuffers() {
   lattice[index] = 0.0; // theta of south pole
   lattice[index + 1] = Math.PI; // phi of south pole
 
-  gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.STATIC_DRAW);
 
 
   indexBuffer = gl.createBuffer();
@@ -122,7 +123,7 @@ function loadBuffers() {
   verticesSize = latticeSize / 2;
 
   // 3 indices per triangle, and topHatStart triangles up to this point
-  bottomHatIndexOffset = 3 * thetaN + 3 * 2 * thetaN * (phiN - 1);
+  bottomHatIndexOffset = 3 * thetaN + 3 * 2 * thetaN * (phiN - 2);
 
   for(let i = 0; i < thetaN; i++) {
     // Top Hat
@@ -164,10 +165,10 @@ function loadBuffers() {
   stripStart = 1;
 
   // Note we don't have a strip on the topmost theta ring, so < phiN - 2 instead of 1
-  for(let i = 0; i < phiN - 1; i++) {
+  for(let i = 1; i < phiN - 1; i++) {
     for(let j = 0; j < thetaN; j++) {
       // Gotta offset the south pole, and then the theta rings below me
-      quadTopLeft = stripStart + j + i * thetaN;
+      quadTopLeft = stripStart + j + (i - 1) * thetaN;
 
       quadTopRight = quadTopLeft + 1;
 
@@ -178,7 +179,7 @@ function loadBuffers() {
 
       // Put me at start of this ring if I reach the last vertex, to complete that circle
       if(j == thetaN - 1) {
-        quadTopRight = stripStart + i * thetaN;
+        quadTopRight = stripStart + (i - 1) * thetaN;
         quadBottomRight = quadTopRight + thetaN;
       }
 
@@ -199,22 +200,65 @@ function loadBuffers() {
   }
 
 
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+
+  normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+
+  normalsSize = 3 * latticeSize/2;
+  normals = new Float32Array(normalsSize);
+
+  normals[0] = 0.0;
+  normals[1] = 1.0;
+  normals[2] = 0.0;
+
+  normals[normalsSize - 3] = 0.0;
+  normals[normalsSize - 2] = -1.0;
+  normals[normalsSize - 1] = 0.0;
+
+  index = 3;
+
+  for(let i = 2; i < latticeSize - 2; i += 2) {
+    normals[index] = Math.sin(lattice[i + 1]) * Math.cos(lattice[i]);
+    normals[index + 1] = Math.cos(lattice[i + 1]);
+    normals[index + 2] = Math.sin(lattice[i + 1]) * Math.sin(lattice[i]);
+
+    index += 3;
+  }
+
+  gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
 }
 
 
 function loadUniforms() {
-  uMVP = gl.getUniformLocation(program, "uMVP");
+  const uModel = gl.getUniformLocation(program, "uModel");
+  const uView = gl.getUniformLocation(program, "uView");
+  const uProjection = gl.getUniformLocation(program, "uProjection");
 
-  model = glMatrix.mat4.create();
-  view = glMatrix.mat4.create();
-  proj = glMatrix.mat4.create();
-  mvp = glMatrix.mat4.create();
+  const uNormalMatrix = gl.getUniformLocation(program, "uNormalMatrix");
+
+  const uLightPosition = gl.getUniformLocation(program, "uLightPosition");
+  const uCameraPosition = gl.getUniformLocation(program, "uCameraPosition");
+
+  const uLightColor = gl.getUniformLocation(program, "uLightColor");
+  const uObjectColor = gl.getUniformLocation(program, "uObjectColor");
+
+
+  const model = glMatrix.mat4.create();
+  const view = glMatrix.mat4.create();
+  const projection = glMatrix.mat4.create();
+
+  const normalMatrix = glMatrix.mat3.create();
+
+  const lightPosition = [-15.0, 10.0, -15.0];
+  const cameraPosition = [0.0, 10.0, -15.0]; // Note: make sure to match view matrix
 
   // Camera
   glMatrix.mat4.lookAt(
     view,
-    [0, 10, -15], // camera position
+    [0, 10, -15], // camera position (Note: make sure to match cameraPosition)
     [0, 0, 0], // look at origin
     [0, 1, 0] // up direction
   );
@@ -224,20 +268,27 @@ function loadUniforms() {
   aspect = canvas.width / canvas.height;
   near = 0.1;
   far = 100.0;
-  glMatrix.mat4.perspective(proj, fov, aspect, near, far);
+  glMatrix.mat4.perspective(projection, fov, aspect, near, far);
 
   // Model
   // identity to clear it so we don't compound transformations
   glMatrix.mat4.identity(model);
-  glMatrix.mat4.rotateX(model, model, performance.now()*0.00025);
-  glMatrix.mat4.rotateY(model, model, performance.now()*0.0005);
-  glMatrix.mat4.rotateZ(model, model, performance.now()*-0.00025);
 
-  // MVP
-  glMatrix.mat4.multiply(mvp, view, model);
-  glMatrix.mat4.multiply(mvp, proj, mvp);
+  glMatrix.mat3.fromMat4(normalMatrix, model);
+  glMatrix.mat3.invert(normalMatrix, normalMatrix);
+  glMatrix.mat3.transpose(normalMatrix, normalMatrix);
 
-  gl.uniformMatrix4fv(uMVP, false, mvp);
+  gl.uniformMatrix4fv(uModel, false, model);
+  gl.uniformMatrix4fv(uView, false, view);
+  gl.uniformMatrix4fv(uProjection, false, projection);
+
+  gl.uniformMatrix3fv(uNormalMatrix, false, normalMatrix);
+
+  gl.uniform3fv(uLightPosition, lightPosition);
+  gl.uniform3fv(uCameraPosition, cameraPosition);
+
+  gl.uniform3fv(uLightColor, [1.0, 1.0, 1.0]);
+  gl.uniform3fv(uObjectColor, [0.8, 0.8, 0.8]);
 }
 
 
@@ -255,13 +306,14 @@ function init() {
 
 
 function render() {
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.clear(gl.COLOR_BUFFER_BIT || gl.DEPTH_BUFFER_BIT);
 
   gl.useProgram(program);
 
   loadUniforms();
 
-  gl.drawElements(gl.LINES, indicesSize, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.TRIANGLES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
   requestAnimationFrame(render);
 
