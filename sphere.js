@@ -248,24 +248,32 @@ class SphereWireframe extends SphereBase {
     this.program = this.buildShaders(vShader_Wireframe, fShader_Wireframe);
   }
 
-  init(vertexAttribPointer) {
+  init(vertexAttribIndex) {
     this.latticeBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.latticeBuffer);
-    gl.vertexAttribPointer(vertexAttribPointer, 2, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(vertexAttribIndex, 2, gl.FLOAT, false, 0, 0);
     gl.bufferData(gl.ARRAY_BUFFER, this.lattice.vData, gl.STATIC_DRAW);
 
     this.indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.lattice.indices, gl.STATIC_DRAW);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.lattice.iData, gl.STATIC_DRAW);
+
+    this.uModel = gl.getUniformLocation(program, "uModel");
+    this.uCamera = gl.getUniformLocation(program, "uView");
+    this.uProjection = gl.getUniformLocation(program, "uProjection");
   }
 
-  draw()  {
+  loadUniforms(model, camera, projection) {
+    gl.uniformMatrix4fv(uModel, false, model);
+    gl.uniformMatrix4fv(uView, false, view);
+    gl.uniformMatrix4fv(uProjection, false, projection);
+  }
+
+  draw(model, camera, projection)  {
     gl.useProgram(this.program);
 
-    // TODO: Uniforms stuff
-
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.latticeBuffer);
+    this.loadUniforms(model, camera, projection);
     
-    gl.drawEl
+    gl.drawElements(gl.TRIANGLES, this.lattice.iDataSize, gl.UNSIGNED_SHORT, 0);
   }
 }
