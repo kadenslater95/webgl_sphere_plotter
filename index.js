@@ -252,7 +252,7 @@ function loadUniforms() {
 
   const normalMatrix = glMatrix.mat3.create();
 
-  const lightPosition = [0.0, 10.0, -15.0];
+  const lightPosition = [-15.0, 10.0, -15.0];
   const cameraPosition = [0.0, 10.0, -15.0]; // Note: make sure to match view matrix
 
   // Camera
