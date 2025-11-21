@@ -116,12 +116,12 @@ fShader_Surface = `
 
 class SphericalLattice {
   constructor(thetaN, phiN) {
-    this.thetaN = thetaN;
-    this.phiN = phiN;
+    this._thetaN = thetaN;
+    this._phiN = phiN;
 
     // (theta, phi) pairs for the poles.
     // Full rings of theta, but phi not counted at poles.
-    this.vDataSize = 2 * 2 + 2 * thetaN * (phiN - 1);
+    this._vDataSize = 2 * 2 + 2 * thetaN * (phiN - 1);
     
     this.#buildVertexData();
 
@@ -129,72 +129,159 @@ class SphericalLattice {
     // 2 poles with thetaN triangles per pole
     // Strips have 2 triangles per theta
     // A theta ring per phi for all but the 2 poles
-    this.iDataSize = 3 * thetaN * 2 + 2 * 3 * thetaN * (phiN - 1);
+    this._iDataSize = 3 * thetaN * 2 + 2 * 3 * thetaN * (phiN - 1);
 
     this.#buildIndexData();
   }
 
   get thetaN() {
-    return this.thetaN;
+    return this._thetaN;
   }
 
   get phiN() {
-    return this.phiN;
+    return this._phiN;
   }
 
   get verticesN() {
-    return this.vDataSize / 2;
+    return this._vDataSize / 2;
   }
 
   get vDataSize() {
-    return this.vDataSize;
+    return this._vDataSize;
   }
 
   get vData() {
-    return this.vData;
+    return this._vData;
   }
 
   get iDataSize() {
-    return this.iDataSize;
+    return this._iDataSize;
   }
 
   get iData() {
-    return this.iData;
+    return this._iData;
   }
 
   #buildVertexData() {
-    this.vData = new Float32Array(this.vDataSize);
+    this._vData = new Float32Array(this._vDataSize);
 
     // Fill from the top down
 
-    this.vData[0] = 0.0; // theta of north pole
-    this.vData[1] = 0.0; // phi of north pole
+    this._vData[0] = 0.0; // theta of north pole
+    this._vData[1] = 0.0; // phi of north pole
 
     // Theta rings are full 0 to 2PI
-    thetaFactor = 2.0*Math.PI/(this.thetaN - 1);
+    let thetaFactor = 2.0*Math.PI/(this._thetaN - 1);
 
     // Phi ranges from 0 to PI
-    phiFactor = Math.PI/this.phiN;
+    let phiFactor = Math.PI/this._phiN;
 
     // The index within the contiguous lattice (not i,j)
-    index = 2;
+    let index = 2;
 
     // Note we start phi at 1 and end 1 early because we already set the poles as a single point
-    for(let i = 1; i < this.phiN; i++) {
-      for(let j = 0; j < this.thetaN; j++) {
-        this.vData[index] = thetaFactor*j;
-        this.vData[index + 1] = phiFactor*i;
+    for(let i = 1; i < this._phiN; i++) {
+      for(let j = 0; j < this._thetaN; j++) {
+        this._vData[index] = thetaFactor*j;
+        this._vData[index + 1] = phiFactor*i;
 
         index += 2;
       }
     }
 
-    this.vData[index] = 0.0; // theta of south pole
-    this.vData[index + 1] = Math.PI; // phi of south pole
+    this._vData[index] = 0.0; // theta of south pole
+    this._vData[index + 1] = Math.PI; // phi of south pole
   }
 
   #buildIndexData() {
+    this._iData = new Uint16Array(this._iDataSize);
+    let index = 0; // index within the indices list, not i,j, etc.
 
+    // Skip vIndex 0 because that is the north pole
+    let topHatStart = 1;
+
+    // Skip noth pole, and all theta rings up to the last, so 1 less then phiN - 2
+    let bottomHatStart = 1 + this._thetaN * (this._phiN - 2);
+
+    // 2 floats per vertex, so divide that out to get number of vertices
+    let verticesSize = this._vDataSize / 2;
+
+    // 3 indices per triangle, and topHatStart triangles up to this point
+    let bottomHatIndexOffset = 3 * this._thetaN + 3 * 2 * this._thetaN * (this._phiN - 2);
+
+    for(let i = 0; i < this._thetaN; i++) {
+      // Top Hat
+      let quadBottomLeft = topHatStart + i;
+      
+      let quadBottomRight = topHatStart + i + 1;
+      if(i == this._thetaN - 1) {
+        quadBottomRight = topHatStart;
+      }
+
+      let northPole = 0;
+
+      this._iData[index] = northPole;
+      this._iData[index + 1] = quadBottomRight;
+      this._iData[index + 2] = quadBottomLeft;
+
+      // -----------------------------------------
+
+      // Bottom Hat
+      let quadTopLeft = bottomHatStart + i;
+
+      let quadTopRight = bottomHatStart + i + 1;
+      if(i == this._thetaN - 1) {
+        quadTopRight = bottomHatStart;
+      }
+
+      let southPole = verticesSize - 1;
+
+      this._iData[bottomHatIndexOffset + index] = southPole;
+      this._iData[bottomHatIndexOffset + index + 1] = quadTopLeft;
+      this._iData[bottomHatIndexOffset + index + 2] = quadTopRight;
+
+      index += 3;
+    }
+
+    // Now fill the strips between bottom hat and top hat
+
+    // 1st index is south pole so offset my vIndex by that
+    let stripStart = 1;
+
+    // Note we don't have a strip on the topmost theta ring, so < this._phiN - 2 instead of 1
+    for(let i = 1; i < this._phiN - 1; i++) {
+      for(let j = 0; j < this._thetaN; j++) {
+        // Gotta offset the south pole, and then the theta rings below me
+        let quadTopLeft = stripStart + j + (i - 1) * this._thetaN;
+
+        let quadTopRight = quadTopLeft + 1;
+
+        // I'm a whole ring below
+        let quadBottomLeft = quadTopLeft + this._thetaN;
+
+        let quadBottomRight = quadBottomLeft + 1;
+
+        // Put me at start of this ring if I reach the last vertex, to complete that circle
+        if(j == this._thetaN - 1) {
+          quadTopRight = stripStart + (i - 1) * this._thetaN;
+          quadBottomRight = quadTopRight + this._thetaN;
+        }
+
+        // Left Triangle
+        this._iData[index] = quadBottomLeft;
+        this._iData[index + 1] = quadTopLeft;
+        this._iData[index + 2] = quadTopRight;
+
+        // Right triangle
+        this._iData[index + 3] = quadTopRight;
+        this._iData[index + 4] = quadBottomRight;
+        this._iData[index + 5] = quadBottomLeft; 
+
+
+        // 2 triangles per theta, 3 vertices per triangle
+        index += 6;
+      }
+    }
   }
 }
 
