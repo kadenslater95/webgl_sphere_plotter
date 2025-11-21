@@ -49,6 +49,7 @@ function init_shaders() {
 
 function loadBuffers() {
   gl.enableVertexAttribArray(0);
+  gl.enableVertexAttribArray(1);
 
   latticeBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, latticeBuffer);
@@ -93,7 +94,7 @@ function loadBuffers() {
   lattice[index] = 0.0; // theta of south pole
   lattice[index + 1] = Math.PI; // phi of south pole
 
-  gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, lattice, gl.STATIC_DRAW);
 
 
   indexBuffer = gl.createBuffer();
@@ -199,22 +200,65 @@ function loadBuffers() {
   }
 
 
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.DYNAMIC_DRAW);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+
+
+  normalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
+  gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+
+  normalsSize = 3 * latticeSize
+  normals = new Float32Array(normalsSize);
+
+  normals[0] = 0.0;
+  normals[1] = 1.0;
+  normals[2] = 0.0;
+
+  normals[normalsSize - 3] = 0.0;
+  normals[normalsSize - 2] = -1.0;
+  normals[normalsSize - 1] = 0.0;
+
+  index = 3;
+
+  for(let i = 2; i < latticeSize - 2; i += 2) {
+    normals[index] = Math.sin(lattice[i + 1]) * Math.cos(lattice[i]);
+    normals[index + 1] = Math.cos(lattice[i + 1]);
+    normals[index + 2] = Math.sin(lattice[i + 1]) * Math.sin(lattice[i]);
+
+    index += 3;
+  }
+
+  gl.bufferData(gl.ARRAY_BUFFER, normals, gl.STATIC_DRAW);
 }
 
 
 function loadUniforms() {
-  uMVP = gl.getUniformLocation(program, "uMVP");
+  const uModel = gl.getUniformLocation(program, "uModel");
+  const uView = gl.getUniformLocation(program, "uView");
+  const uProjection = gl.getUniformLocation(program, "uProjection");
 
-  model = glMatrix.mat4.create();
-  view = glMatrix.mat4.create();
-  proj = glMatrix.mat4.create();
-  mvp = glMatrix.mat4.create();
+  const uNormalMatrix = gl.getUniformLocation(program, "uNormalMatrix");
+
+  const uLightPosition = gl.getUniformLocation(program, "uLightPosition");
+  const uCameraPosition = gl.getUniformLocation(program, "uCameraPosition");
+
+  const uLightColor = gl.getUniformLocation(program, "uLightColor");
+  const uObjectColor = gl.getUniformLocation(program, "uObjectColor");
+
+
+  const model = glMatrix.mat4.create();
+  const view = glMatrix.mat4.create();
+  const projection = glMatrix.mat4.create();
+
+  const normalMatrix = glMatrix.mat3.create();
+
+  const lightPosition = [-15.0, 10.0, -15.0];
+  const cameraPosition = [0.0, 10.0, -15.0]; // Note: make sure to match view matrix
 
   // Camera
   glMatrix.mat4.lookAt(
     view,
-    [0, 10, -15], // camera position
+    [0, 10, -15], // camera position (Note: make sure to match cameraPosition)
     [0, 0, 0], // look at origin
     [0, 1, 0] // up direction
   );
@@ -224,20 +268,30 @@ function loadUniforms() {
   aspect = canvas.width / canvas.height;
   near = 0.1;
   far = 100.0;
-  glMatrix.mat4.perspective(proj, fov, aspect, near, far);
+  glMatrix.mat4.perspective(projection, fov, aspect, near, far);
 
   // Model
   // identity to clear it so we don't compound transformations
   glMatrix.mat4.identity(model);
   glMatrix.mat4.rotateX(model, model, performance.now()*0.00025);
   glMatrix.mat4.rotateY(model, model, performance.now()*0.0005);
-  glMatrix.mat4.rotateZ(model, model, performance.now()*-0.00025);
+  glMatrix.mat4.rotateZ(model, model, performance.now()*0.00025);
 
-  // MVP
-  glMatrix.mat4.multiply(mvp, view, model);
-  glMatrix.mat4.multiply(mvp, proj, mvp);
+  glMatrix.mat3.fromMat4(normalMatrix, model);
+  glMatrix.mat3.invert(normalMatrix, normalMatrix);
+  glMatrix.mat3.transpose(normalMatrix, normalMatrix);
 
-  gl.uniformMatrix4fv(uMVP, false, mvp);
+  gl.uniformMatrix4fv(uModel, false, model);
+  gl.uniformMatrix4fv(uView, false, view);
+  gl.uniformMatrix4fv(uProjection, false, projection);
+
+  gl.uniformMatrix3fv(uNormalMatrix, false, normalMatrix);
+
+  gl.uniform3fv(uLightPosition, lightPosition);
+  gl.uniform3fv(uCameraPosition, cameraPosition);
+
+  gl.uniform3fv(uLightColor, [1.0, 1.0, 1.0]);
+  gl.uniform3fv(uObjectColor, [0.8, 0.8, 0.8]);
 }
 
 
@@ -261,7 +315,7 @@ function render() {
 
   loadUniforms();
 
-  gl.drawElements(gl.LINES, indicesSize, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.TRIANGLES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
   requestAnimationFrame(render);
 
