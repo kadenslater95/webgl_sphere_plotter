@@ -56,8 +56,8 @@ function loadBuffers() {
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   
   // How many (theta, phi) pairs to form my spherical coordinate mesh vertices
-  thetaN = 50;
-  phiN = 50;
+  thetaN = 25;
+  phiN = 25;
   // Note: phi[0] is south pole, and phi[len - 1] is north pole
 
   // 2 poles, each with 2 floats (theta, phi)
@@ -73,7 +73,7 @@ function loadBuffers() {
   lattice[1] = 0.0; // phi of north pole
 
   // Theta rings are full 0 to 2PI
-  thetaFactor = 2.0*Math.PI/thetaN;
+  thetaFactor = 2.0*Math.PI/(thetaN - 1);
 
   // Phi ranges from 0 to PI
   phiFactor = Math.PI/phiN;
@@ -82,7 +82,7 @@ function loadBuffers() {
   index = 2;
 
   // Note we start phi at 1 and end 1 early because we already set the poles as a single point
-  for(let i = 0; i < phiN; i++) {
+  for(let i = 1; i < phiN; i++) {
     for(let j = 0; j < thetaN; j++) {
       lattice[index] = thetaFactor*j;
       lattice[index + 1] = phiFactor*i;
@@ -117,13 +117,13 @@ function loadBuffers() {
   topHatStart = 1;
 
   // Skip noth pole, and all theta rings up to the last, so 1 less then phiN - 2
-  bottomHatStart = 1 + thetaN * (phiN - 2);
+  bottomHatStart = 1 + thetaN * (phiN - 1);
 
   // 2 floats per vertex, so divide that out to get number of vertices
   verticesSize = latticeSize / 2;
 
   // 3 indices per triangle, and topHatStart triangles up to this point
-  bottomHatIndexOffset = 3 * thetaN + 3 * 2 * thetaN * (phiN - 1);
+  bottomHatIndexOffset = 3 * thetaN + 3 * 2 * thetaN * (phiN - 2);
 
   for(let i = 0; i < thetaN; i++) {
     // Top Hat
@@ -165,10 +165,10 @@ function loadBuffers() {
   stripStart = 1;
 
   // Note we don't have a strip on the topmost theta ring, so < phiN - 2 instead of 1
-  for(let i = 0; i < phiN - 1; i++) {
+  for(let i = 1; i < phiN - 1; i++) {
     for(let j = 0; j < thetaN; j++) {
       // Gotta offset the south pole, and then the theta rings below me
-      quadTopLeft = stripStart + j + i * thetaN;
+      quadTopLeft = stripStart + j + (i - 1) * thetaN;
 
       quadTopRight = quadTopLeft + 1;
 
@@ -179,7 +179,7 @@ function loadBuffers() {
 
       // Put me at start of this ring if I reach the last vertex, to complete that circle
       if(j == thetaN - 1) {
-        quadTopRight = stripStart + i * thetaN;
+        quadTopRight = stripStart + (i - 1) * thetaN;
         quadBottomRight = quadTopRight + thetaN;
       }
 
@@ -273,9 +273,10 @@ function loadUniforms() {
   // Model
   // identity to clear it so we don't compound transformations
   glMatrix.mat4.identity(model);
-  glMatrix.mat4.rotateX(model, model, performance.now()*0.00025);
-  glMatrix.mat4.rotateY(model, model, performance.now()*0.0005);
-  glMatrix.mat4.rotateZ(model, model, performance.now()*0.00025);
+  glMatrix.mat4.rotateX(model, model, Math.PI/2.0);
+  //glMatrix.mat4.rotateX(model, model, performance.now()*0.00025);
+  //glMatrix.mat4.rotateY(model, model, performance.now()*0.0005);
+  //glMatrix.mat4.rotateZ(model, model, performance.now()*0.00025);
 
   glMatrix.mat3.fromMat4(normalMatrix, model);
   glMatrix.mat3.invert(normalMatrix, normalMatrix);
@@ -309,13 +310,14 @@ function init() {
 
 
 function render() {
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.clear(gl.COLOR_BUFFER_BIT || gl.DEPTH_BUFFER_BIT);
 
   gl.useProgram(program);
 
   loadUniforms();
 
-  gl.drawElements(gl.TRIANGLES, indicesSize, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.LINES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
   requestAnimationFrame(render);
 
