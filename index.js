@@ -252,7 +252,7 @@ function loadUniforms() {
 
   const normalMatrix = glMatrix.mat3.create();
 
-  const lightPosition = [-15.0, 10.0, -15.0];
+  const lightPosition = [0.0, 10.0, -15.0];
   const cameraPosition = [0.0, 10.0, -15.0]; // Note: make sure to match view matrix
 
   // Camera
@@ -287,8 +287,8 @@ function loadUniforms() {
   gl.uniform3fv(uLightPosition, lightPosition);
   gl.uniform3fv(uCameraPosition, cameraPosition);
 
-  gl.uniform3fv(uLightColor, [1.0, 1.0, 1.0]);
-  gl.uniform3fv(uObjectColor, [0.8, 0.8, 0.8]);
+  gl.uniform3fv(uLightColor, [0.8, 0.8, 0.8]);
+  gl.uniform3fv(uObjectColor, [0.7, 0.7, 0.7]);
 }
 
 
