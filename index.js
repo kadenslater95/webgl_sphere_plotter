@@ -56,14 +56,14 @@ function loadBuffers() {
   gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
   
   // How many (theta, phi) pairs to form my spherical coordinate mesh vertices
-  thetaN = 25;
-  phiN = 25;
+  thetaN = 50;
+  phiN = 50;
   // Note: phi[0] is south pole, and phi[len - 1] is north pole
 
   // 2 poles, each with 2 floats (theta, phi)
   latticeSize = 2 * 2;
   // Full rings of theta, but phi not counted at poles
-  latticeSize += 2 * thetaN * phiN;
+  latticeSize += 2 * thetaN * (phiN - 1);
 
   lattice = new Float32Array(latticeSize);
 
@@ -117,7 +117,7 @@ function loadBuffers() {
   topHatStart = 1;
 
   // Skip noth pole, and all theta rings up to the last, so 1 less then phiN - 2
-  bottomHatStart = 1 + thetaN * (phiN - 1);
+  bottomHatStart = 1 + thetaN * (phiN - 2);
 
   // 2 floats per vertex, so divide that out to get number of vertices
   verticesSize = latticeSize / 2;
@@ -273,10 +273,6 @@ function loadUniforms() {
   // Model
   // identity to clear it so we don't compound transformations
   glMatrix.mat4.identity(model);
-  glMatrix.mat4.rotateX(model, model, Math.PI/2.0);
-  //glMatrix.mat4.rotateX(model, model, performance.now()*0.00025);
-  //glMatrix.mat4.rotateY(model, model, performance.now()*0.0005);
-  //glMatrix.mat4.rotateZ(model, model, performance.now()*0.00025);
 
   glMatrix.mat3.fromMat4(normalMatrix, model);
   glMatrix.mat3.invert(normalMatrix, normalMatrix);
@@ -317,7 +313,7 @@ function render() {
 
   loadUniforms();
 
-  gl.drawElements(gl.LINES, indicesSize, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.TRIANGLES, indicesSize, gl.UNSIGNED_SHORT, 0);
 
   requestAnimationFrame(render);
 
