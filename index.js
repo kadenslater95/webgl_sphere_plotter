@@ -207,7 +207,7 @@ function loadBuffers() {
   gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
   gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
 
-  normalsSize = 3 * latticeSize
+  normalsSize = 3 * latticeSize/2;
   normals = new Float32Array(normalsSize);
 
   normals[0] = 0.0;
