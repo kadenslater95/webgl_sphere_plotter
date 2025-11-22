@@ -6,10 +6,10 @@ const light = {
   position: [-15.0, 10.0, -15.0]
 };
 
-const sphere_1 = new Sphere({glContext: gl, mode: 'WIREFRAME', rho: 3.0, color: [0.2, 0.2, 0.7]});
+const sphere_1 = new Sphere({glContext: gl, mode: 'WIREFRAME', rho: 3, color: [0.2, 0.2, 0.7]});
 const model_1 = glMatrix.mat4.create();
 
-const sphere_2 = new Sphere({rho: 3.0, color: [0.2, 0.7, 0.2]});
+const sphere_2 = new Sphere({rho: 3, color: [0.2, 0.7, 0.2]});
 const model_2 = glMatrix.mat4.create();
 
 function init() {
@@ -47,7 +47,7 @@ function render() {
 
 
   glMatrix.mat4.identity(model_1);
-  glMatrix.mat4.translate(model_1, model_1, [3.0, 3.5, 0.0]);
+  glMatrix.mat4.translate(model_1, model_1, [-4.0, 0.0, 0.0]);
   glMatrix.mat4.rotateY(model_1, model_1, performance.now() * 0.0005);
   glMatrix.mat4.rotateX(model_1, model_1, Math.PI/2);
 
@@ -55,7 +55,7 @@ function render() {
 
 
   glMatrix.mat4.identity(model_2);
-  glMatrix.mat4.translate(model_2, model_2, [-3.0, -3.5, 0.0]);
+  glMatrix.mat4.translate(model_2, model_2, [4.0, 0.0, 0.0]);
 
   sphere_2.draw(model_2, camera, projection, light);
 
