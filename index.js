@@ -1,32 +1,14 @@
 
-let webgl_status, canvas, gl, program, buffer;
-
 const camera = glMatrix.mat4.create();
 const projection = glMatrix.mat4.create();
 
 const wfSphere_1 = new SphereWireframe();
 const model_1 = glMatrix.mat4.create();
 
-
-function cleanup() {
-  gl.useProgram(null);
-  if (buffer) {
-    gl.deleteBuffer(buffer);
-  }
-  if (program) {
-    gl.deleteProgram(program);
-  }
-}
-
-
 function init() {
-  init_shaders();
-
   gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
 
   gl.clearColor(0.0, 0.0, 0.0, 1.0);
-  
-  loadBuffers();
 
   // Camera
   glMatrix.mat4.lookAt(
@@ -66,14 +48,6 @@ function render() {
 
 
 window.onload = function() {
-  webgl_status = this.document.querySelector("#webgl-status");
-
-  canvas = document.querySelector("canvas");
-  canvas.width = canvas.clientWidth;
-  canvas.height = canvas.clientHeight;
-
-  gl = canvas.getContext("webgl");
-
   if(gl instanceof WebGLRenderingContext) {
     webgl_status.style.display = "none";
 

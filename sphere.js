@@ -5,7 +5,7 @@ vShader_Wireframe = `
   attribute vec2 aPosition;
 
   uniform mat4 uModel;
-  uniform mat4 uView;
+  uniform mat4 uCamera;
   uniform mat4 uProjection;
 
   uniform float rho;
@@ -15,7 +15,7 @@ vShader_Wireframe = `
     float y = rho * cos(aPosition.y);
     float z = rho * sin(aPosition.y) * sin(aPosition.x);
 
-    gl_Position = uProjection * uView * uModel * vec4(x, y, z, 1.0);
+    gl_Position = uProjection * uCamera * uModel * vec4(x, y, z, 1.0);
   }
 `;
 
@@ -27,7 +27,7 @@ vShader_Surface = `
   attribute vec3 aNormal;
 
   uniform mat4 uModel;
-  uniform mat4 uView;
+  uniform mat4 uCamera;
   uniform mat4 uProjection;
 
   // Inverse-Transpose of upper-left 3x3 matrix of uModel
@@ -49,7 +49,7 @@ vShader_Surface = `
 
     vNormal = normalize(uNormalMatrix * aNormal);
 
-    gl_Position = uProjection * uView * worldPosition;
+    gl_Position = uProjection * uCamera * worldPosition;
   }
 `;
 
@@ -287,36 +287,36 @@ class SphericalLattice {
 
 
 class SphereBase {
-  program;
+  _program;
 
   constructor(thetaN, phiN) {
     this.lattice = new SphericalLattice(thetaN, phiN);
   }
 
   buildShaders(vShaderSource, fShaderSource) {
-    vertexShader = gl.createShader(gl.VERTEX_SHADER);
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vertexShader, vShaderSource);
     gl.compileShader(vertexShader);
 
-    fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fragmentShader, fShaderSource);
     gl.compileShader(fragmentShader);
 
-    program = gl.createProgram();
+    this._program = gl.createProgram();
 
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
+    gl.attachShader(this._program, vertexShader);
+    gl.attachShader(this._program, fragmentShader);
 
-    gl.linkProgram(program);
+    gl.linkProgram(this._program);
 
-    gl.detachShader(program, vertexShader);
-    gl.detachShader(program, fragmentShader);
+    gl.detachShader(this._program, vertexShader);
+    gl.detachShader(this._program, fragmentShader);
 
     gl.deleteShader(vertexShader);
     gl.deleteShader(fragmentShader);
 
-    if(!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-      const linkErrLog = gl.getProgramInfoLog(program);
+    if(!gl.getProgramParameter(this._program, gl.LINK_STATUS)) {
+      const linkErrLog = gl.getProgramInfoLog(this._program);
       cleanup();
       webgl_status.style.display = 'block';
       webgl_status.textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
@@ -332,7 +332,7 @@ class SphereWireframe extends SphereBase {
 
     this.rho = rho;
 
-    this.program = this.buildShaders(vShader_Wireframe, fShader_Wireframe);
+    this.buildShaders(vShader_Wireframe, fShader_Wireframe);
   }
 
   init(vertexAttribIndex) {
@@ -345,19 +345,19 @@ class SphereWireframe extends SphereBase {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.lattice.iData, gl.STATIC_DRAW);
 
-    this.uModel = gl.getUniformLocation(program, "uModel");
-    this.uCamera = gl.getUniformLocation(program, "uView");
-    this.uProjection = gl.getUniformLocation(program, "uProjection");
+    this.uModel = gl.getUniformLocation(this._program, "uModel");
+    this.uCamera = gl.getUniformLocation(this._program, "uCamera");
+    this.uProjection = gl.getUniformLocation(this._program, "uProjection");
   }
 
   loadUniforms(model, camera, projection) {
-    gl.uniformMatrix4fv(uModel, false, model);
-    gl.uniformMatrix4fv(uView, false, view);
-    gl.uniformMatrix4fv(uProjection, false, projection);
+    gl.uniformMatrix4fv(this.uModel, false, model);
+    gl.uniformMatrix4fv(this.uCamera, false, camera);
+    gl.uniformMatrix4fv(this.uProjection, false, projection);
   }
 
   draw(model, camera, projection)  {
-    gl.useProgram(this.program);
+    gl.useProgram(this._program);
 
     this.loadUniforms(model, camera, projection);
     

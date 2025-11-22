@@ -2,16 +2,26 @@
 <html>
 <head>
   <link rel="stylesheet" href="index.css"></link>
-
-  <!-- Use glmatrix library -->
-  <script type="text/javascript" src="gl-matrix-min.js"></script>
-
-  <script type="text/javascript" src="sphere.js"></script>
-
-  <script type="text/javascript" src="index.js"></script>
 </head>
 <body>
   <p id="webgl-status"></p>
   <canvas></canvas>
+
+  <!-- Use glmatrix library -->
+  <script type="text/javascript" src="gl-matrix-min.js"></script>
+
+  <script type="text/javascript">
+    const webgl_status = this.document.querySelector("#webgl-status");
+
+    const canvas = document.querySelector("canvas");
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+
+    const gl = canvas.getContext("webgl");
+  </script>
+
+  <script type="text/javascript" src="sphere.js"></script>
+
+  <script type="text/javascript" src="index.js"></script>
 </body>
 </html>
