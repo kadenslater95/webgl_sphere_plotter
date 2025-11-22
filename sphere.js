@@ -114,24 +114,22 @@ fShader_Surface = `
 
 
 
-class SphericalLattice {
-  constructor(thetaN, phiN) {
-    this._thetaN = thetaN;
-    this._phiN = phiN;
+class SphereLattice {
+  constructor(args) {
+    this.constructorValidator(args);
 
-    // (theta, phi) pairs for the poles.
-    // Full rings of theta, but phi not counted at poles.
-    this._vDataSize = 2 * 2 + 2 * thetaN * (phiN - 1);
+    this._thetaN = args.thetaN;
+    this._phiN = args.phiN;
     
     this.#buildVertexData();
 
-    // 3 indicies per triangle
-    // 2 poles with thetaN triangles per pole
-    // Strips have 2 triangles per theta
-    // A theta ring per phi for all but the 2 poles
-    this._iDataSize = 3 * thetaN * 2 + 2 * 3 * thetaN * (phiN - 1);
-
-    this.#buildIndexData();
+    // The setter calls the build index data too
+    this._mode = args.mode;
+    if(args.mode === 'WIREFRAME') {
+      this.#buildWireframeIndexData();
+    }else {
+      this.#buildSurfaceIndexData();
+    }
   }
 
   get thetaN() {
@@ -162,7 +160,26 @@ class SphericalLattice {
     return this._iData;
   }
 
+  get mode() {
+    return this._mode;
+  }
+
+  constructorValidator(args) {
+    if(
+      !(typeof args.thetaN === 'number') ||
+      !(typeof args.phiN === 'number')
+    ) {
+      throw "SphereLatticeError: Invalid argument provided, thetaN and phiN must be of type 'number'";
+    }
+
+    if(!['SURFACE', 'WIREFRAME'].includes(args.mode)) {
+      throw "SphereLatticeError: Invalid argument provided, mode must be one of (SURFACE,WIREFRAME)";
+    }
+  }
+
   #buildVertexData() {
+    this._vDataSize = 2 * 2 + 2 * thetaN * (phiN - 1);
+
     this._vData = new Float32Array(this._vDataSize);
 
     // Fill from the top down
@@ -193,7 +210,9 @@ class SphericalLattice {
     this._vData[index + 1] = Math.PI; // phi of south pole
   }
 
-  #buildIndexData() {
+  #buildSurfaceIndexData() {
+    this._iDataSize = 3 * thetaN * 2 + 2 * 3 * thetaN * (phiN - 1);
+
     this._iData = new Uint16Array(this._iDataSize);
     let index = 0; // index within the indices list, not i,j, etc.
 
@@ -283,17 +302,69 @@ class SphericalLattice {
       }
     }
   }
+
+  #buildWireframeIndexData() {
+    this._iDataSize = 2 * 2 * thetaN + 2 * 4 * thetaN;
+
+    // TODO: Finish this indexing
+    this._iData 
+  }
 }
 
 
-class SphereBase {
+class Sphere {
   _program;
 
-  constructor(thetaN, phiN) {
-    this.lattice = new SphericalLattice(thetaN, phiN);
+  constructor(args) {
+    this.constructorValidator(args);
+
+    this._thetaN = args.thetaN ?? 50;
+    this._phiN = args.phiN ?? 50;
+    this._rho = args.phiN ?? 1.0;
+    this._mode = args.mode ?? 'SURFACE';
+
+    this._latticeArgs = {
+      thetaN: this._thetaN,
+      phiN: this._phiN,
+      mode: this._mode
+    };
   }
 
-  buildShaders(vShaderSource, fShaderSource) {
+  constructorValidator(args) {
+    invalidArg = null
+
+    if(
+      !([null, undefined].include(args.thetaN) || typeof args.thetaN === 'number')
+    ) {
+      invalidArg = 'thetaN';
+    }else if(
+      !([null, undefined].include(args.phiN) || typeof args.phiN === 'number')
+    ) {
+      invalidArg = 'phiN';
+    }else if(
+      !([null, undefined].include(args.rho) || typeof args.rho === 'number')
+    ) {
+      invalidArg = 'rho';
+    }
+
+    if(invalidArg) {
+      throw `SphereError: Invalid argument provided, ${invalidArg} must be of type 'number' or not provided`
+    }
+
+    if(!['SURFACE', 'WIREFRAME'].includes(args.mode)) {
+      throw "SphereError: Invalid argument provided, mode must be empty or one of (SURFACE,WIREFRAME)";
+    }
+  }
+
+  init() {
+    if(this._mode === 'WIREFRAME') {
+      this.#buildWireframeShaders(vShader_Wireframe, fShader_Wireframe);
+    }
+
+    this._lattice = new SphereLattice(latticeArgs);
+  }
+
+  #buildWireframeShaders(vShaderSource, fShaderSource) {
     const vertexShader = gl.createShader(gl.VERTEX_SHADER);
     gl.shaderSource(vertexShader, vShaderSource);
     gl.compileShader(vertexShader);
@@ -323,53 +394,73 @@ class SphereBase {
       throw new Error(`Program failed to link: ${linkErrLog}`);
     }
   }
-};
-
-
-class SphereWireframe extends SphereBase {
-  constructor(rho = 5.0, thetaN = 50, phiN = 50) {
-    super(thetaN, phiN);
-
-    this.rho = rho;
-
-    this.buildShaders(vShader_Wireframe, fShader_Wireframe);
-  }
 
   init() {
-    this.aPosition = gl.getAttribLocation(this._program, "aPosition");
-    gl.enableVertexAttribArray(this.aPosition);
+    this._aPosition = gl.getAttribLocation(this._program, "aPosition");
+    gl.enableVertexAttribArray(this._aPosition);
 
-    this.latticeBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.latticeBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this.lattice.vData, gl.STATIC_DRAW);
-    gl.vertexAttribPointer(this.aPosition, 2, gl.FLOAT, false, 0, 0);
+    this._latticeBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._latticeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this._lattice.vData, gl.STATIC_DRAW);
+    gl.vertexAttribPointer(this._aPosition, 2, gl.FLOAT, false, 0, 0);
 
-    this.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.lattice.iData, gl.STATIC_DRAW);
+    this._indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, gl.STATIC_DRAW);
 
-    this.uModel = gl.getUniformLocation(this._program, "uModel");
-    this.uCamera = gl.getUniformLocation(this._program, "uCamera");
-    this.uProjection = gl.getUniformLocation(this._program, "uProjection");
+    this._uModel = gl.getUniformLocation(this._program, "uModel");
+    this._uCamera = gl.getUniformLocation(this._program, "uCamera");
+    this._uProjection = gl.getUniformLocation(this._program, "uProjection");
 
-    this.uColor = gl.getUniformLocation(this._program, "uColor");
-    this.uRho = gl.getUniformLocation(this._program, "rho");
+    this._uColor = gl.getUniformLocation(this._program, "uColor");
+    this._uRho = gl.getUniformLocation(this._program, "rho");
+
+    if(this._mode === 'WIREFRAME') {
+      this.#initWireframe();
+    }else {
+      this.#initSurface();
+    }
   }
 
-  loadUniforms(model, camera, projection) {
-    gl.uniformMatrix4fv(this.uModel, false, model);
-    gl.uniformMatrix4fv(this.uCamera, false, camera);
-    gl.uniformMatrix4fv(this.uProjection, false, projection);
-
-    gl.uniform4fv(this.uColor, [0.2, 8.0, 0.2, 1.0]);
-    gl.uniform1f(this.uRho, this.rho);
+  #initWireframe() {
+    // TODO: Fill this in
   }
 
-  draw(model, camera, projection)  {
-    gl.useProgram(this._program);
+  #initSurface() {
+    // TODO: Fill this up
+  }
 
-    this.loadUniforms(model, camera, projection);
+  #loadWireframeUniforms(model, camera, projection) {
+    gl.uniformMatrix4fv(this._uModel, false, model);
+    gl.uniformMatrix4fv(this._uCamera, false, camera);
+    gl.uniformMatrix4fv(this._uProjection, false, projection);
+
+    gl.uniform4fv(this._uColor, [0.2, 8.0, 0.2, 1.0]);
+    gl.uniform1f(this._uRho, this._rho);
+  }
+
+  #loadSurfaceUniforms(model, camera, projection) {
+    // TODO: Fill this in
+  }
+
+  #drawWireframe(model, camera, projection)  {
+    gl.useProgram(this._wProgram);
+
+    this.#loadWireframeUniforms(model, camera, projection);
     
-    gl.drawElements(gl.LINES, this.lattice.iDataSize, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.LINES, this._lattice.iDataSize, gl.UNSIGNED_SHORT, 0);
   }
-}
+
+  #drawSurface(model, camera, projection) {
+    // TODO: Fill this in
+  }
+
+  draw() {
+    // TODO: Pass GL to this object
+    if(this._mode === 'WIREFRAME') {
+      this.#drawWireframe();
+    }else {
+      this.#drawSurface();
+    }
+  }
+};
