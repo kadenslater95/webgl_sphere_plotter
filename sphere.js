@@ -467,12 +467,15 @@ class Sphere {
     this._uRho = this._gl.getUniformLocation(this._program, "rho");
   }
 
-  draw(model, camera, projection) {
-    // TODO: Pass GL to this object
+  draw(model, camera, projection, light) {
+    this._gl.useProgram(this._program);
+
+    this.#loadUniforms(model, camera, projection, light);
+
     if(this._mode === 'WIREFRAME') {
-      this.#drawWireframe(model, camera, projection);
+      this._gl.drawElements(this._gl.LINES, this._lattice.iDataSize, this._gl.UNSIGNED_SHORT, 0);
     }else {
-      this.#drawSurface(model, camera, projection);
+      this._gl.drawElements(this._gl.TRIANGLES, this._lattice.iDataSize, this._gl.UNSIGNED_SHORT, 0);
     }
   }
 
@@ -538,28 +541,12 @@ class Sphere {
     }
   }
 
-  #loadWireframeUniforms(model, camera, projection) {
+  #loadUniforms(model, camera, projection) {
     this._gl.uniformMatrix4fv(this._uModel, false, model);
     this._gl.uniformMatrix4fv(this._uCamera, false, camera);
     this._gl.uniformMatrix4fv(this._uProjection, false, projection);
 
     this._gl.uniform4fv(this._uColor, this._color);
     this._gl.uniform1f(this._uRho, this._rho);
-  }
-
-  #loadSurfaceUniforms(model, camera, projection) {
-    // TODO: Fill this in
-  }
-
-  #drawWireframe(model, camera, projection)  {
-    this._gl.useProgram(this._program);
-
-    this.#loadWireframeUniforms(model, camera, projection);
-    
-    this._gl.drawElements(this._gl.LINES, this._lattice.iDataSize, this._gl.UNSIGNED_SHORT, 0);
-  }
-
-  #drawSurface(model, camera, projection) {
-    // TODO: Fill this in
   }
 };
