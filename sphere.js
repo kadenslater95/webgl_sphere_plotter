@@ -116,7 +116,7 @@ fShader_Surface = `
 
 class SphereLattice {
   constructor(args) {
-    this.constructorValidator(args);
+    this.#constructorValidator(args);
 
     this._thetaN = args.thetaN;
     this._phiN = args.phiN;
@@ -164,7 +164,7 @@ class SphereLattice {
     return this._mode;
   }
 
-  constructorValidator(args) {
+  #constructorValidator(args) {
     if(
       !(typeof args.thetaN === 'number') ||
       !(typeof args.phiN === 'number')
@@ -178,7 +178,7 @@ class SphereLattice {
   }
 
   #buildVertexData() {
-    this._vDataSize = 2 * 2 + 2 * thetaN * (phiN - 1);
+    this._vDataSize = 2 * 2 + 2 * this._thetaN * (this._phiN - 1);
 
     this._vData = new Float32Array(this._vDataSize);
 
@@ -392,16 +392,14 @@ class SphereLattice {
 
 
 class Sphere {
-  _program;
-
   // TODO: Make scene object so that surface can have same light as other
   // Objects. Update wireframe to use lighting as well.
   constructor(args) {
-    this.constructorValidator(args);
+    this.#constructorValidator(args);
 
     this._thetaN = args.thetaN ?? 50;
     this._phiN = args.phiN ?? 50;
-    this._rho = args.phiN ?? 1.0;
+    this._rho = args.rho ?? 1.0;
     this._mode = args.mode ?? 'SURFACE';
 
     this._latticeArgs = {
@@ -411,19 +409,65 @@ class Sphere {
     };
   }
 
-  constructorValidator(args) {
-    invalidArg = null
+
+  init() {
+    if(this._mode === 'WIREFRAME') {
+      this.#buildWireframeShaders(vShader_Wireframe, fShader_Wireframe);
+    }else {
+      this.#buildSurfaceShaders(vShader_Surface, fShader_Surface);
+    }
+
+    this._lattice = new SphereLattice(this._latticeArgs);
+
+    this._aPosition = gl.getAttribLocation(this._program, "aPosition");
+    gl.enableVertexAttribArray(this._aPosition);
+
+    this._latticeBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._latticeBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this._lattice.vData, gl.STATIC_DRAW);
+    gl.vertexAttribPointer(this._aPosition, 2, gl.FLOAT, false, 0, 0);
+
+    this._indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, gl.STATIC_DRAW);
+
+    this._uModel = gl.getUniformLocation(this._program, "uModel");
+    this._uCamera = gl.getUniformLocation(this._program, "uCamera");
+    this._uProjection = gl.getUniformLocation(this._program, "uProjection");
+
+    this._uColor = gl.getUniformLocation(this._program, "uColor");
+    this._uRho = gl.getUniformLocation(this._program, "rho");
+
+    if(this._mode === 'WIREFRAME') {
+      this.#initWireframe();
+    }else {
+      this.#initSurface();
+    }
+  }
+
+  draw(model, camera, projection) {
+    // TODO: Pass GL to this object
+    if(this._mode === 'WIREFRAME') {
+      this.#drawWireframe(model, camera, projection);
+    }else {
+      this.#drawSurface(model, camera, projection);
+    }
+  }
+
+
+  #constructorValidator(args) {
+    let invalidArg = null
 
     if(
-      !([null, undefined].include(args.thetaN) || typeof args.thetaN === 'number')
+      !([null, undefined].includes(args.thetaN) || typeof args.thetaN === 'number')
     ) {
       invalidArg = 'thetaN';
     }else if(
-      !([null, undefined].include(args.phiN) || typeof args.phiN === 'number')
+      !([null, undefined].includes(args.phiN) || typeof args.phiN === 'number')
     ) {
       invalidArg = 'phiN';
     }else if(
-      !([null, undefined].include(args.rho) || typeof args.rho === 'number')
+      !([null, undefined].includes(args.rho) || typeof args.rho === 'number')
     ) {
       invalidArg = 'rho';
     }
@@ -435,14 +479,6 @@ class Sphere {
     if(!['SURFACE', 'WIREFRAME'].includes(args.mode)) {
       throw "SphereError: Invalid argument provided, mode must be empty or one of (SURFACE,WIREFRAME)";
     }
-  }
-
-  init() {
-    if(this._mode === 'WIREFRAME') {
-      this.#buildWireframeShaders(vShader_Wireframe, fShader_Wireframe);
-    }
-
-    this._lattice = new SphereLattice(latticeArgs);
   }
 
   #buildWireframeShaders(vShaderSource, fShaderSource) {
@@ -476,31 +512,8 @@ class Sphere {
     }
   }
 
-  init() {
-    this._aPosition = gl.getAttribLocation(this._program, "aPosition");
-    gl.enableVertexAttribArray(this._aPosition);
-
-    this._latticeBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._latticeBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this._lattice.vData, gl.STATIC_DRAW);
-    gl.vertexAttribPointer(this._aPosition, 2, gl.FLOAT, false, 0, 0);
-
-    this._indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, gl.STATIC_DRAW);
-
-    this._uModel = gl.getUniformLocation(this._program, "uModel");
-    this._uCamera = gl.getUniformLocation(this._program, "uCamera");
-    this._uProjection = gl.getUniformLocation(this._program, "uProjection");
-
-    this._uColor = gl.getUniformLocation(this._program, "uColor");
-    this._uRho = gl.getUniformLocation(this._program, "rho");
-
-    if(this._mode === 'WIREFRAME') {
-      this.#initWireframe();
-    }else {
-      this.#initSurface();
-    }
+  #buildSurfaceShaders(vShaderSource, fShaderSource) {
+    // TODO: Fill this in
   }
 
   #initWireframe() {
@@ -525,7 +538,7 @@ class Sphere {
   }
 
   #drawWireframe(model, camera, projection)  {
-    gl.useProgram(this._wProgram);
+    gl.useProgram(this._program);
 
     this.#loadWireframeUniforms(model, camera, projection);
     
@@ -534,14 +547,5 @@ class Sphere {
 
   #drawSurface(model, camera, projection) {
     // TODO: Fill this in
-  }
-
-  draw() {
-    // TODO: Pass GL to this object
-    if(this._mode === 'WIREFRAME') {
-      this.#drawWireframe();
-    }else {
-      this.#drawSurface();
-    }
   }
 };
