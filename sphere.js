@@ -1,25 +1,5 @@
 
-vShader_Wireframe = `
-  #version 100
-
-  attribute vec2 aPosition;
-
-  uniform mat4 uModel;
-  uniform mat4 uCamera;
-  uniform mat4 uProjection;
-
-  uniform float rho;
-
-  void main() {
-    float x = rho * sin(aPosition.y) * cos(aPosition.x);
-    float y = rho * cos(aPosition.y);
-    float z = rho * sin(aPosition.y) * sin(aPosition.x);
-
-    gl_Position = uProjection * uCamera * uModel * vec4(x, y, z, 1.0);
-  }
-`;
-
-vShader_Surface = `
+vertexShader = `
   #version 100
 
   attribute vec2 aPosition;
@@ -54,20 +34,7 @@ vShader_Surface = `
 `;
 
 
-fShader_Wireframe = `
-  #version 100
-
-  precision mediump float;
-
-  uniform vec4 uColor;
-
-  void main() {
-    gl_FragColor = uColor;
-  }
-`;
-
-
-fShader_Surface = `
+fragementShader = `
   #version 100
 
   precision mediump float;
@@ -122,6 +89,7 @@ class SphereLattice {
     this._phiN = args.phiN;
     
     this.#buildVertexData();
+    this.#buildNormalData();
 
     // The setter calls the build index data too
     this._mode = args.mode;
@@ -158,6 +126,14 @@ class SphereLattice {
 
   get iData() {
     return this._iData;
+  }
+
+  get nDataSize() {
+    return this._nDataSize;
+  }
+
+  get nData() {
+    return this._nData;
   }
 
   get mode() {
@@ -307,6 +283,30 @@ class SphereLattice {
     }
   }
 
+  #buildNormalData() {
+    this._nDataSize = 3 * this._vDataSize/2;
+
+    this._nData = new Float32Array(this._nDataSize);
+
+    this._nData[0] = 0.0;
+    this._nData[1] = 1.0;
+    this._nData[2] = 0.0;
+
+    this._nData[this._nDataSize - 3] = 0.0;
+    this._nData[this._nDataSize - 2] = -1.0;
+    this._nData[this._nDataSize - 1] = 0.0;
+
+    index = 3;
+
+    for(let i = 2; i < this._vDataSize - 2; i += 2) {
+      this._nData[index] = Math.sin(this._vData[i + 1]) * Math.cos(this._vData[i]);
+      this._nData[index + 1] = Math.cos(this._vData[i + 1]);
+      this._nData[index + 2] = Math.sin(this._vData[i + 1]) * Math.sin(this._vData[i]);
+
+      index += 3;
+    }
+  }
+
   #buildWireframeIndexData() {
     // 2 indices per line.
     // Bottom and Top have 1 vertical line per theta.
@@ -435,16 +435,15 @@ class Sphere {
 
 
   init() {
-    if(this._mode === 'WIREFRAME') {
-      this.#buildWireframeShaders(vShader_Wireframe, fShader_Wireframe);
-    }else {
-      this.#buildSurfaceShaders(vShader_Surface, fShader_Surface);
-    }
+    this.#buildShaders(vertexShader, fragmentShader);
 
     this._lattice = new SphereLattice(this._latticeArgs);
 
     this._aPosition = this._gl.getAttribLocation(this._program, "aPosition");
     this._gl.enableVertexAttribArray(this._aPosition);
+
+    this._aNormal = this._gl.getAttribLocation(this._program, "aNormal");
+    this._gl.enableVertexAttribArray(this._aNormal);
 
     this._latticeBuffer = this._gl.createBuffer();
     this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._latticeBuffer);
@@ -455,18 +454,17 @@ class Sphere {
     this._gl.bindBuffer(this._gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
     this._gl.bufferData(this._gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, this._gl.STATIC_DRAW);
 
+    this._normalBuffer = this._gl.createBuffer();
+    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._normalBuffer);
+    this._gl.buggerData(this._gl.ARRAY_BUFFER, this._lattice.nData, this._gl.STATIC_DRAW);
+    this._gl.vertexAttribPointer(this._aNormal, 3, this._gl.FLOAT, false, 0, 0);
+
     this._uModel = this._gl.getUniformLocation(this._program, "uModel");
     this._uCamera = this._gl.getUniformLocation(this._program, "uCamera");
     this._uProjection = this._gl.getUniformLocation(this._program, "uProjection");
 
     this._uColor = this._gl.getUniformLocation(this._program, "uColor");
     this._uRho = this._gl.getUniformLocation(this._program, "rho");
-
-    if(this._mode === 'WIREFRAME') {
-      this.#initWireframe();
-    }else {
-      this.#initSurface();
-    }
   }
 
   draw(model, camera, projection) {
@@ -509,7 +507,7 @@ class Sphere {
     }
   }
 
-  #buildWireframeShaders(vShaderSource, fShaderSource) {
+  #buildShaders(vShaderSource, fShaderSource) {
     const vertexShader = this._gl.createShader(this._gl.VERTEX_SHADER);
     this._gl.shaderSource(vertexShader, vShaderSource);
     this._gl.compileShader(vertexShader);
@@ -538,18 +536,6 @@ class Sphere {
       webgl_status.textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
       throw new Error(`Program failed to link: ${linkErrLog}`);
     }
-  }
-
-  #buildSurfaceShaders(vShaderSource, fShaderSource) {
-    // TODO: Fill this in
-  }
-
-  #initWireframe() {
-    // TODO: Fill this in
-  }
-
-  #initSurface() {
-    // TODO: Fill this up
   }
 
   #loadWireframeUniforms(model, camera, projection) {
