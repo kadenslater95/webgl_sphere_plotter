@@ -10,6 +10,8 @@ vertexShader = `
   uniform mat4 uCamera;
   uniform mat4 uProjection;
 
+  uniform float rho;
+
   // Inverse-Transpose of upper-left 3x3 matrix of uModel
   uniform mat3 uNormalMatrix;
 
@@ -17,8 +19,6 @@ vertexShader = `
   varying vec3 vFragmentPosition;
 
   void main() {
-    float rho = 5.0;
-
     float x = rho * sin(aPosition.y) * cos(aPosition.x);
     float y = rho * cos(aPosition.y);
     float z = rho * sin(aPosition.y) * sin(aPosition.x);
@@ -34,7 +34,7 @@ vertexShader = `
 `;
 
 
-fragementShader = `
+fragmentShader = `
   #version 100
 
   precision mediump float;
@@ -296,7 +296,7 @@ class SphereLattice {
     this._nData[this._nDataSize - 2] = -1.0;
     this._nData[this._nDataSize - 1] = 0.0;
 
-    index = 3;
+    let index = 3;
 
     for(let i = 2; i < this._vDataSize - 2; i += 2) {
       this._nData[index] = Math.sin(this._vData[i + 1]) * Math.cos(this._vData[i]);
@@ -405,7 +405,7 @@ class Sphere {
     this._rho = args.rho ?? 5.0;
     this._mode = args.mode ?? 'SURFACE';
 
-    this._color = args.color ?? [0.8, 0.2, 0.2, 1.0];
+    this._color = args.color ?? [0.8, 0.2, 0.2];
 
     this._latticeArgs = {
       thetaN: this._thetaN,
@@ -420,13 +420,13 @@ class Sphere {
   };
 
   set color(newColor) {
-    if(!(typeof newColor === 'array' && newColor.length() === 4)) {
-      throw 'SphereError: color must be an array of 4 floats between 0 and 1';
+    if(!(typeof newColor === 'array' && newColor.length() === 3)) {
+      throw 'SphereError: color must be an array of 3 floats between 0 and 1';
     }
 
     for(let i = 0 ; i < newColor.length(); i++) {
       if(newColor[i] < 0 || newColor[i] > 1) {
-        throw 'SphereError: color must be an array of 4 floats between 0 and 1';
+        throw 'SphereError: color must be an array of 3 floats between 0 and 1';
       }
     }
 
@@ -439,32 +439,9 @@ class Sphere {
 
     this._lattice = new SphereLattice(this._latticeArgs);
 
-    this._aPosition = this._gl.getAttribLocation(this._program, "aPosition");
-    this._gl.enableVertexAttribArray(this._aPosition);
+    this.#initBuffers();
 
-    this._aNormal = this._gl.getAttribLocation(this._program, "aNormal");
-    this._gl.enableVertexAttribArray(this._aNormal);
-
-    this._latticeBuffer = this._gl.createBuffer();
-    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._latticeBuffer);
-    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.vData, this._gl.STATIC_DRAW);
-    this._gl.vertexAttribPointer(this._aPosition, 2, this._gl.FLOAT, false, 0, 0);
-
-    this._indexBuffer = this._gl.createBuffer();
-    this._gl.bindBuffer(this._gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
-    this._gl.bufferData(this._gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, this._gl.STATIC_DRAW);
-
-    this._normalBuffer = this._gl.createBuffer();
-    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._normalBuffer);
-    this._gl.buggerData(this._gl.ARRAY_BUFFER, this._lattice.nData, this._gl.STATIC_DRAW);
-    this._gl.vertexAttribPointer(this._aNormal, 3, this._gl.FLOAT, false, 0, 0);
-
-    this._uModel = this._gl.getUniformLocation(this._program, "uModel");
-    this._uCamera = this._gl.getUniformLocation(this._program, "uCamera");
-    this._uProjection = this._gl.getUniformLocation(this._program, "uProjection");
-
-    this._uColor = this._gl.getUniformLocation(this._program, "uColor");
-    this._uRho = this._gl.getUniformLocation(this._program, "rho");
+    this.#initUniforms();
   }
 
   draw(model, camera, projection, light) {
@@ -541,12 +518,62 @@ class Sphere {
     }
   }
 
-  #loadUniforms(model, camera, projection) {
+  #initBuffers() {
+    this._aPosition = this._gl.getAttribLocation(this._program, "aPosition");
+    this._gl.enableVertexAttribArray(this._aPosition);
+
+    this._aNormal = this._gl.getAttribLocation(this._program, "aNormal");
+    this._gl.enableVertexAttribArray(this._aNormal);
+
+    this._latticeBuffer = this._gl.createBuffer();
+    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._latticeBuffer);
+    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.vData, this._gl.STATIC_DRAW);
+    this._gl.vertexAttribPointer(this._aPosition, 2, this._gl.FLOAT, false, 0, 0);
+
+    this._indexBuffer = this._gl.createBuffer();
+    this._gl.bindBuffer(this._gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
+    this._gl.bufferData(this._gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, this._gl.STATIC_DRAW);
+
+    this._normalBuffer = this._gl.createBuffer();
+    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._normalBuffer);
+    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.nData, this._gl.STATIC_DRAW);
+    this._gl.vertexAttribPointer(this._aNormal, 3, this._gl.FLOAT, false, 0, 0);
+  }
+
+  #initUniforms() {
+    this._uModel = this._gl.getUniformLocation(this._program, "uModel");
+    this._uCamera = this._gl.getUniformLocation(this._program, "uCamera");
+    this._uProjection = this._gl.getUniformLocation(this._program, "uProjection");
+
+    this._uNormalMatrix = gl.getUniformLocation(this._program, "uNormalMatrix");
+
+    this._uRho = this._gl.getUniformLocation(this._program, "rho");
+
+    this._uLightPosition = gl.getUniformLocation(this._program, "uLightPosition");
+    this._uCameraPosition = gl.getUniformLocation(this._program, "uCameraPosition");
+
+    this._uLightColor = this._gl.getUniformLocation(this._program, "uLightColor");
+    this._uObjectColor = this._gl.getUniformLocation(this._program, "uObjectColor");
+  }
+
+  #loadUniforms(model, camera, projection, light) {
     this._gl.uniformMatrix4fv(this._uModel, false, model);
     this._gl.uniformMatrix4fv(this._uCamera, false, camera);
     this._gl.uniformMatrix4fv(this._uProjection, false, projection);
 
-    this._gl.uniform4fv(this._uColor, this._color);
+    const normalMatrix = glMatrix.mat3.create();
+    glMatrix.mat3.fromMat4(normalMatrix, model);
+    glMatrix.mat3.invert(normalMatrix, normalMatrix);
+    glMatrix.mat3.transpose(normalMatrix, normalMatrix);
+    this._gl.uniformMatrix3fv(this._uNormalMatrix, false, normalMatrix);
+
     this._gl.uniform1f(this._uRho, this._rho);
+
+    this._gl.uniform3fv(this._uCameraPosition, [camera[12], camera[13], camera[14]]);
+
+    this._gl.uniform3fv(this._uLightPosition, light.position);
+    this._gl.uniform3fv(this._uLightColor, light.color);
+
+    this._gl.uniform3fv(this._uObjectColor, this._color);
   }
 };

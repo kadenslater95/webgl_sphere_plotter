@@ -1,8 +1,12 @@
 
 const camera = glMatrix.mat4.create();
 const projection = glMatrix.mat4.create();
+const light = {
+  color: [0.8, 0.8, 0.8],
+  position: [-15.0, 10.0, -15.0]
+};
 
-const wfSphere_1 = new Sphere({glContext: gl, mode: 'WIREFRAME', rho: 5.0, color: [0.2, 0.2, 0.7, 1.0]});
+const wfSphere_1 = new Sphere({glContext: gl, mode: 'WIREFRAME', rho: 5.0, color: [0.2, 0.2, 0.7]});
 const model_1 = glMatrix.mat4.create();
 
 function init() {
@@ -41,7 +45,7 @@ function render() {
   glMatrix.mat4.rotateY(model_1, model_1, performance.now() * 0.0005);
   glMatrix.mat4.rotateX(model_1, model_1, Math.PI/2);
 
-  wfSphere_1.draw(model_1, camera, projection);
+  wfSphere_1.draw(model_1, camera, projection, light);
 
   requestAnimationFrame(render);
 
