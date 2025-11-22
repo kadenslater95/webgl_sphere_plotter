@@ -2,7 +2,7 @@
 const camera = glMatrix.mat4.create();
 const projection = glMatrix.mat4.create();
 
-const wfSphere_1 = new Sphere({mode: 'WIREFRAME', rho: 5.0});
+const wfSphere_1 = new Sphere({mode: 'WIREFRAME', rho: 5.0, color: [0.2, 0.2, 0.7, 1.0]});
 const model_1 = glMatrix.mat4.create();
 
 function init() {

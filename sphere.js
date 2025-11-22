@@ -402,12 +402,33 @@ class Sphere {
     this._rho = args.rho ?? 5.0;
     this._mode = args.mode ?? 'SURFACE';
 
+    this._color = args.color ?? [0.8, 0.2, 0.2, 1.0];
+
     this._latticeArgs = {
       thetaN: this._thetaN,
       phiN: this._phiN,
       mode: this._mode
     };
   }
+
+
+  get color() {
+    return this._color;
+  };
+
+  set color(newColor) {
+    if(!(typeof newColor === 'array' && newColor.length() === 4)) {
+      throw 'SphereError: color must be an array of 4 floats between 0 and 1';
+    }
+
+    for(let i = 0 ; i < newColor.length(); i++) {
+      if(newColor[i] < 0 || newColor[i] > 1) {
+        throw 'SphereError: color must be an array of 4 floats between 0 and 1';
+      }
+    }
+
+    this._color = newColor;
+  };
 
 
   init() {
@@ -529,7 +550,7 @@ class Sphere {
     gl.uniformMatrix4fv(this._uCamera, false, camera);
     gl.uniformMatrix4fv(this._uProjection, false, projection);
 
-    gl.uniform4fv(this._uColor, [0.2, 8.0, 0.2, 1.0]);
+    gl.uniform4fv(this._uColor, this._color);
     gl.uniform1f(this._uRho, this._rho);
   }
 
