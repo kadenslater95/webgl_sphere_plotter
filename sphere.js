@@ -482,7 +482,7 @@ class Sphere {
       throw `SphereError: Invalid argument provided, ${invalidNumberArg} must be of type 'number' or not provided`
     }
 
-    if(!['SURFACE', 'WIREFRAME'].includes(args.mode)) {
+    if(![null, undefined, 'SURFACE', 'WIREFRAME'].includes(args.mode)) {
       throw "SphereError: Invalid argument provided, mode must be empty or one of (SURFACE,WIREFRAME)";
     }
   }
