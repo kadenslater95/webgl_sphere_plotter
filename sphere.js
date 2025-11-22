@@ -211,7 +211,11 @@ class SphereLattice {
   }
 
   #buildSurfaceIndexData() {
-    this._iDataSize = 3 * thetaN * 2 + 2 * 3 * thetaN * (phiN - 1);
+    // 3 indices per triangle.
+    // a theta ring of triangles on both bottom and top hat.
+    // 2 triangles per theta in the theta strips.
+    // 1 less than phiN number of strips.
+    this._iDataSize = 3 * this._thetaN * 2 + 2 * 3 * this._thetaN * (this._phiN - 1);
 
     this._iData = new Uint16Array(this._iDataSize);
     let index = 0; // index within the indices list, not i,j, etc.
@@ -264,13 +268,13 @@ class SphereLattice {
 
     // Now fill the strips between bottom hat and top hat
 
-    // 1st index is south pole so offset my vIndex by that
+    // 1st index is north pole so offset my vIndex by that
     let stripStart = 1;
 
     // Note we don't have a strip on the topmost theta ring, so < this._phiN - 2 instead of 1
     for(let i = 1; i < this._phiN - 1; i++) {
       for(let j = 0; j < this._thetaN; j++) {
-        // Gotta offset the south pole, and then the theta rings below me
+        // Gotta offset the north pole, and then the theta rings above me
         let quadTopLeft = stripStart + j + (i - 1) * this._thetaN;
 
         let quadTopRight = quadTopLeft + 1;
@@ -304,10 +308,85 @@ class SphereLattice {
   }
 
   #buildWireframeIndexData() {
-    this._iDataSize = 2 * 2 * thetaN + 2 * 4 * thetaN;
+    // 2 indices per line.
+    // Bottom and Top have 1 vertical line per theta.
+    // The strips make the right side triangle and bottom horizontal line
+    // per theta, and it wraps around nicely.
+    this._iDataSize = 2 * 2 * this._thetaN + 2 * 4 * this._thetaN;
 
-    // TODO: Finish this indexing
-    this._iData 
+    this._iData = new Uint16Array(this._iDataSize);
+    let index = 0; // index within indices list, not i,j, etc.
+
+    // Skip vIndex 0 because that is the north pole
+    let topHatStart = 1;
+
+    // Skip north pole, and theta rings up to phiN - 2 instead of
+    // phiN - 1 so that the bottom of the last strip is the top of the
+    // bottom hat
+    let bottomHatStart = 1 + this._thetaN * (this._phiN - 2);
+
+    // 2 floats per vertex, so divide that out to get number of vertices
+    let verticesSize = this._vDataSize / 2;
+
+    // 2 indices per line.
+    // Theta ring of lines on bottom row.
+    // 4 lines per theta in the theta strip.
+    // phiN - 2 instead phiN - 1 because last strip is top of bottom hat
+    let bottomHatIndexOffset = 2 * this._thetaN + 2 * 4 * this._thetaN * (this._phiN - 2);
+
+    for(let i = 0; i < this.thetaN; i++) {
+      // North pole to each theta
+      this._iData[index] = 0;
+      this._iData[index + 1] = topHatStart + i;
+
+      // Each theta to south pole
+      this._iData[bottomHatIndexOffset + index] = bottomHatStart + i;
+      this._iData[bottomHatIndexOffset + index + 1] = verticesSize - 1;
+
+      index += 2;
+    }
+
+    // 1st index is north pole, so offset by that
+    let stripStart = 1;
+
+    for(let i = 1; i < this._phiN - 1; i++) {
+      for(let j = 0; j < this._thetaN; j++) {
+        // Gotta offset the north pole, and then the theta rings above me
+        let quadTopLeft = stripStart + j + (i - 1) * this._thetaN;
+
+        let quadTopRight = quadTopLeft + 1;
+
+        // I'm a whole ring below
+        let quadBottomLeft = quadTopLeft + this._thetaN;
+
+        let quadBottomRight = quadBottomLeft + 1;
+
+        // Put me at start of this ring if I reach the last vertex, to complete that circle
+        if(j == this._thetaN - 1) {
+          quadTopRight = stripStart + (i - 1) * this._thetaN;
+          quadBottomRight = quadTopRight + this._thetaN;
+        }
+
+        // horizontal top
+        this._iData[index] = quadTopLeft;
+        this._iData[index + 1] = quadTopRight;
+
+        // vertical right
+        this._iData[index + 2] = quadTopRight;
+        this._iData[index + 3] = quadBottomRight;
+
+        // diagnol
+        this._iData[index + 4] = quadBottomRight;
+        this._iData[index + 5] = quadTopLeft;
+
+        // horizontal bottom
+        this._iData[index + 6] = quadBottomLeft;
+        this._iData[index + 7] = quadBottomRight;
+
+        // 2 indices per line, 4 lines per theta
+        index += 8;
+      }
+    }
   }
 }
 
@@ -315,6 +394,8 @@ class SphereLattice {
 class Sphere {
   _program;
 
+  // TODO: Make scene object so that surface can have same light as other
+  // Objects. Update wireframe to use lighting as well.
   constructor(args) {
     this.constructorValidator(args);
 
