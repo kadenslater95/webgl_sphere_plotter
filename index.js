@@ -33,12 +33,13 @@ function init() {
 
 
 function render() {
-  // gl.enable(gl.DEPTH_TEST);
-  // gl.clear(gl.COLOR_BUFFER_BIT || gl.DEPTH_BUFFER_BIT);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST);
+  gl.clear(gl.COLOR_BUFFER_BIT || gl.DEPTH_BUFFER_BIT);
 
 
   glMatrix.mat4.identity(model_1);
+  glMatrix.mat4.rotateY(model_1, model_1, performance.now() * 0.0005);
+  glMatrix.mat4.rotateX(model_1, model_1, Math.PI/2);
 
   wfSphere_1.draw(model_1, camera, projection);
 
