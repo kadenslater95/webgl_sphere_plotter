@@ -397,6 +397,9 @@ class Sphere {
   constructor(args) {
     this.#constructorValidator(args);
 
+    // If you have a global gl rendering context, then it will use that
+    this._gl = args.glContext ?? gl;
+
     this._thetaN = args.thetaN ?? 50;
     this._phiN = args.phiN ?? 50;
     this._rho = args.rho ?? 5.0;
@@ -440,24 +443,24 @@ class Sphere {
 
     this._lattice = new SphereLattice(this._latticeArgs);
 
-    this._aPosition = gl.getAttribLocation(this._program, "aPosition");
-    gl.enableVertexAttribArray(this._aPosition);
+    this._aPosition = this._gl.getAttribLocation(this._program, "aPosition");
+    this._gl.enableVertexAttribArray(this._aPosition);
 
-    this._latticeBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._latticeBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this._lattice.vData, gl.STATIC_DRAW);
-    gl.vertexAttribPointer(this._aPosition, 2, gl.FLOAT, false, 0, 0);
+    this._latticeBuffer = this._gl.createBuffer();
+    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._latticeBuffer);
+    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.vData, this._gl.STATIC_DRAW);
+    this._gl.vertexAttribPointer(this._aPosition, 2, this._gl.FLOAT, false, 0, 0);
 
-    this._indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, gl.STATIC_DRAW);
+    this._indexBuffer = this._gl.createBuffer();
+    this._gl.bindBuffer(this._gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
+    this._gl.bufferData(this._gl.ELEMENT_ARRAY_BUFFER, this._lattice.iData, this._gl.STATIC_DRAW);
 
-    this._uModel = gl.getUniformLocation(this._program, "uModel");
-    this._uCamera = gl.getUniformLocation(this._program, "uCamera");
-    this._uProjection = gl.getUniformLocation(this._program, "uProjection");
+    this._uModel = this._gl.getUniformLocation(this._program, "uModel");
+    this._uCamera = this._gl.getUniformLocation(this._program, "uCamera");
+    this._uProjection = this._gl.getUniformLocation(this._program, "uProjection");
 
-    this._uColor = gl.getUniformLocation(this._program, "uColor");
-    this._uRho = gl.getUniformLocation(this._program, "rho");
+    this._uColor = this._gl.getUniformLocation(this._program, "uColor");
+    this._uRho = this._gl.getUniformLocation(this._program, "rho");
 
     if(this._mode === 'WIREFRAME') {
       this.#initWireframe();
@@ -477,24 +480,28 @@ class Sphere {
 
 
   #constructorValidator(args) {
-    let invalidArg = null
+    if(!(args.glContext instanceof WebGLRenderingContext || gl instanceof WebGLRenderingContext)) {
+      throw "SphereError: Invalid argument provided, glContext must be a WebGLRenderingContext";
+    }
+
+    let invalidNumberArg = null
 
     if(
       !([null, undefined].includes(args.thetaN) || typeof args.thetaN === 'number')
     ) {
-      invalidArg = 'thetaN';
+      invalidNumberArg = 'thetaN';
     }else if(
       !([null, undefined].includes(args.phiN) || typeof args.phiN === 'number')
     ) {
-      invalidArg = 'phiN';
+      invalidNumberArg = 'phiN';
     }else if(
       !([null, undefined].includes(args.rho) || typeof args.rho === 'number')
     ) {
-      invalidArg = 'rho';
+      invalidNumberArg = 'rho';
     }
 
-    if(invalidArg) {
-      throw `SphereError: Invalid argument provided, ${invalidArg} must be of type 'number' or not provided`
+    if(invalidNumberArg) {
+      throw `SphereError: Invalid argument provided, ${invalidNumberArg} must be of type 'number' or not provided`
     }
 
     if(!['SURFACE', 'WIREFRAME'].includes(args.mode)) {
@@ -503,29 +510,29 @@ class Sphere {
   }
 
   #buildWireframeShaders(vShaderSource, fShaderSource) {
-    const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertexShader, vShaderSource);
-    gl.compileShader(vertexShader);
+    const vertexShader = this._gl.createShader(this._gl.VERTEX_SHADER);
+    this._gl.shaderSource(vertexShader, vShaderSource);
+    this._gl.compileShader(vertexShader);
 
-    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragmentShader, fShaderSource);
-    gl.compileShader(fragmentShader);
+    const fragmentShader = this._gl.createShader(this._gl.FRAGMENT_SHADER);
+    this._gl.shaderSource(fragmentShader, fShaderSource);
+    this._gl.compileShader(fragmentShader);
 
-    this._program = gl.createProgram();
+    this._program = this._gl.createProgram();
 
-    gl.attachShader(this._program, vertexShader);
-    gl.attachShader(this._program, fragmentShader);
+    this._gl.attachShader(this._program, vertexShader);
+    this._gl.attachShader(this._program, fragmentShader);
 
-    gl.linkProgram(this._program);
+    this._gl.linkProgram(this._program);
 
-    gl.detachShader(this._program, vertexShader);
-    gl.detachShader(this._program, fragmentShader);
+    this._gl.detachShader(this._program, vertexShader);
+    this._gl.detachShader(this._program, fragmentShader);
 
-    gl.deleteShader(vertexShader);
-    gl.deleteShader(fragmentShader);
+    this._gl.deleteShader(vertexShader);
+    this._gl.deleteShader(fragmentShader);
 
-    if(!gl.getProgramParameter(this._program, gl.LINK_STATUS)) {
-      const linkErrLog = gl.getProgramInfoLog(this._program);
+    if(!this._gl.getProgramParameter(this._program, this._gl.LINK_STATUS)) {
+      const linkErrLog = this._gl.getProgramInfoLog(this._program);
       cleanup();
       webgl_status.style.display = 'block';
       webgl_status.textContent = `Shader program did not link successfully. Error log: ${linkErrLog}`;
@@ -546,12 +553,12 @@ class Sphere {
   }
 
   #loadWireframeUniforms(model, camera, projection) {
-    gl.uniformMatrix4fv(this._uModel, false, model);
-    gl.uniformMatrix4fv(this._uCamera, false, camera);
-    gl.uniformMatrix4fv(this._uProjection, false, projection);
+    this._gl.uniformMatrix4fv(this._uModel, false, model);
+    this._gl.uniformMatrix4fv(this._uCamera, false, camera);
+    this._gl.uniformMatrix4fv(this._uProjection, false, projection);
 
-    gl.uniform4fv(this._uColor, this._color);
-    gl.uniform1f(this._uRho, this._rho);
+    this._gl.uniform4fv(this._uColor, this._color);
+    this._gl.uniform1f(this._uRho, this._rho);
   }
 
   #loadSurfaceUniforms(model, camera, projection) {
@@ -559,11 +566,11 @@ class Sphere {
   }
 
   #drawWireframe(model, camera, projection)  {
-    gl.useProgram(this._program);
+    this._gl.useProgram(this._program);
 
     this.#loadWireframeUniforms(model, camera, projection);
     
-    gl.drawElements(gl.LINES, this._lattice.iDataSize, gl.UNSIGNED_SHORT, 0);
+    this._gl.drawElements(this._gl.LINES, this._lattice.iDataSize, this._gl.UNSIGNED_SHORT, 0);
   }
 
   #drawSurface(model, camera, projection) {
