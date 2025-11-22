@@ -312,7 +312,7 @@ class SphereLattice {
     // Bottom and Top have 1 vertical line per theta.
     // The strips make the right side triangle and bottom horizontal line
     // per theta, and it wraps around nicely.
-    this._iDataSize = 2 * 2 * this._thetaN + 2 * 4 * this._thetaN;
+    this._iDataSize = 2 * 2 * this._thetaN + 2 * 4 * this._thetaN * (this._phiN - 1);
 
     this._iData = new Uint16Array(this._iDataSize);
     let index = 0; // index within indices list, not i,j, etc.
@@ -399,7 +399,7 @@ class Sphere {
 
     this._thetaN = args.thetaN ?? 50;
     this._phiN = args.phiN ?? 50;
-    this._rho = args.rho ?? 1.0;
+    this._rho = args.rho ?? 5.0;
     this._mode = args.mode ?? 'SURFACE';
 
     this._latticeArgs = {
