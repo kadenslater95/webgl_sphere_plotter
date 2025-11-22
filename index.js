@@ -26,15 +26,16 @@ function init() {
   glMatrix.mat4.perspective(projection, fov, aspect, near, far);
 
 
-  wfSphere_1.init(0);
+  wfSphere_1.init();
 
   render();
 }
 
 
 function render() {
-  gl.enable(gl.DEPTH_TEST);
-  gl.clear(gl.COLOR_BUFFER_BIT || gl.DEPTH_BUFFER_BIT);
+  // gl.enable(gl.DEPTH_TEST);
+  // gl.clear(gl.COLOR_BUFFER_BIT || gl.DEPTH_BUFFER_BIT);
+  gl.clear(gl.COLOR_BUFFER_BIT);
 
 
   glMatrix.mat4.identity(model_1);
@@ -56,4 +57,3 @@ window.onload = function() {
     webgl_status.textContent = "Failed. Your browser or device may not support WebGL";
   }
 }
-

@@ -59,10 +59,10 @@ fShader_Wireframe = `
 
   precision mediump float;
 
-  uniform vec4 color;
+  uniform vec4 uColor;
 
   void main() {
-    gl_FragColor = color;
+    gl_FragColor = uColor;
   }
 `;
 
@@ -335,11 +335,14 @@ class SphereWireframe extends SphereBase {
     this.buildShaders(vShader_Wireframe, fShader_Wireframe);
   }
 
-  init(vertexAttribIndex) {
+  init() {
+    this.aPosition = gl.getAttribLocation(this._program, "aPosition");
+    gl.enableVertexAttribArray(this.aPosition);
+
     this.latticeBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, this.latticeBuffer);
-    gl.vertexAttribPointer(vertexAttribIndex, 2, gl.FLOAT, false, 0, 0);
     gl.bufferData(gl.ARRAY_BUFFER, this.lattice.vData, gl.STATIC_DRAW);
+    gl.vertexAttribPointer(this.aPosition, 2, gl.FLOAT, false, 0, 0);
 
     this.indexBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
@@ -348,12 +351,18 @@ class SphereWireframe extends SphereBase {
     this.uModel = gl.getUniformLocation(this._program, "uModel");
     this.uCamera = gl.getUniformLocation(this._program, "uCamera");
     this.uProjection = gl.getUniformLocation(this._program, "uProjection");
+
+    this.uColor = gl.getUniformLocation(this._program, "uColor");
+    this.uRho = gl.getUniformLocation(this._program, "rho");
   }
 
   loadUniforms(model, camera, projection) {
     gl.uniformMatrix4fv(this.uModel, false, model);
     gl.uniformMatrix4fv(this.uCamera, false, camera);
     gl.uniformMatrix4fv(this.uProjection, false, projection);
+
+    gl.uniform4fv(this.uColor, [0.2, 8.0, 0.2, 1.0]);
+    gl.uniform1f(this.uRho, this.rho);
   }
 
   draw(model, camera, projection)  {
@@ -361,6 +370,6 @@ class SphereWireframe extends SphereBase {
 
     this.loadUniforms(model, camera, projection);
     
-    gl.drawElements(gl.TRIANGLES, this.lattice.iDataSize, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.LINES, this.lattice.iDataSize, gl.UNSIGNED_SHORT, 0);
   }
 }
