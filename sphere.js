@@ -447,6 +447,8 @@ class Sphere {
   draw(model, camera, projection, light) {
     this._gl.useProgram(this._program);
 
+    this.#loadBuffers();
+
     this.#loadUniforms(model, camera, projection, light);
 
     if(this._mode === 'WIREFRAME') {
@@ -527,8 +529,8 @@ class Sphere {
 
     this._latticeBuffer = this._gl.createBuffer();
     this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._latticeBuffer);
-    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.vData, this._gl.STATIC_DRAW);
     this._gl.vertexAttribPointer(this._aPosition, 2, this._gl.FLOAT, false, 0, 0);
+    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.vData, this._gl.STATIC_DRAW);
 
     this._indexBuffer = this._gl.createBuffer();
     this._gl.bindBuffer(this._gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
@@ -536,8 +538,8 @@ class Sphere {
 
     this._normalBuffer = this._gl.createBuffer();
     this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._normalBuffer);
-    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.nData, this._gl.STATIC_DRAW);
     this._gl.vertexAttribPointer(this._aNormal, 3, this._gl.FLOAT, false, 0, 0);
+    this._gl.bufferData(this._gl.ARRAY_BUFFER, this._lattice.nData, this._gl.STATIC_DRAW);
   }
 
   #initUniforms() {
@@ -554,6 +556,19 @@ class Sphere {
 
     this._uLightColor = this._gl.getUniformLocation(this._program, "uLightColor");
     this._uObjectColor = this._gl.getUniformLocation(this._program, "uObjectColor");
+  }
+
+  #loadBuffers() {
+    this._gl.enableVertexAttribArray(this._aPosition);
+    this._gl.enableVertexAttribArray(this._aNormal);
+
+    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._latticeBuffer);
+    this._gl.vertexAttribPointer(this._aPosition, 2, this._gl.FLOAT, false, 0, 0);
+
+    this._gl.bindBuffer(this._gl.ELEMENT_ARRAY_BUFFER, this._indexBuffer);
+
+    this._gl.bindBuffer(this._gl.ARRAY_BUFFER, this._normalBuffer);
+    this._gl.vertexAttribPointer(this._aNormal, 3, this._gl.FLOAT, false, 0, 0);
   }
 
   #loadUniforms(model, camera, projection, light) {
